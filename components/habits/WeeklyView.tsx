@@ -1,9 +1,12 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { getWeekDates, formatDate } from "@/utils/dates";
+import { useCelebrationStore } from "@/store/useCelebrationStore";
 import { useHabitStore } from "@/store/useHabitStore";
-import { isToday, isBefore, startOfDay } from "date-fns";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { formatDate, getWeekDates } from "@/utils/dates";
+import { playAppSound } from "@/utils/sound";
+import { Ionicons } from "@expo/vector-icons";
+import { isBefore, isToday, startOfDay } from "date-fns";
+import React from "react";
+import { Text, TouchableOpacity, View } from "react-native";
 
 interface WeeklyViewProps {
   habitId: string;
@@ -11,7 +14,10 @@ interface WeeklyViewProps {
 }
 
 export default function WeeklyView({ habitId, color }: WeeklyViewProps) {
-  const { toggleHabit, isHabitCompletedOnDate } = useHabitStore();
+  const { toggleHabit, isHabitCompletedOnDate, getWeekProgress } =
+    useHabitStore();
+  const settings = useSettingsStore();
+  const triggerCelebration = useCelebrationStore((state) => state.triggerBurst);
   const weekDates = getWeekDates(new Date());
   const DAY_LABELS = ["M", "Tu", "W", "Th", "F", "Sa", "Su"];
 
@@ -49,7 +55,56 @@ export default function WeeklyView({ habitId, color }: WeeklyViewProps) {
           return (
             <TouchableOpacity
               key={dateStr}
-              onPress={() => !isFuture && toggleHabit(habitId, dateStr)}
+              onPress={() => {
+                if (isFuture) return;
+
+                const beforeWeek = getWeekProgress(
+                  habitId,
+                  dateStr,
+                ).completedDays;
+                const wasCompleted = isHabitCompletedOnDate(habitId, dateStr);
+
+                toggleHabit(habitId, dateStr);
+
+                const state = useHabitStore.getState();
+                const afterWeek = state.getWeekProgress(
+                  habitId,
+                  dateStr,
+                ).completedDays;
+                const nowCompleted = state.isHabitCompletedOnDate(
+                  habitId,
+                  dateStr,
+                );
+
+                if (
+                  !wasCompleted &&
+                  nowCompleted &&
+                  settings.soundEnabled &&
+                  settings.tickSoundEnabled
+                ) {
+                  playAppSound(
+                    "pop",
+                    Math.max(0.1, settings.celebrationVolume * 0.7),
+                  );
+                }
+
+                if (
+                  settings.celebrationsEnabled &&
+                  beforeWeek < 6 &&
+                  afterWeek >= 6
+                ) {
+                  if (settings.confettiEnabled) {
+                    triggerCelebration();
+                  }
+
+                  if (settings.soundEnabled) {
+                    playAppSound(
+                      settings.celebrationSound,
+                      settings.celebrationVolume,
+                    );
+                  }
+                }
+              }}
               className="flex-1 items-center"
               activeOpacity={0.7}
               disabled={isFuture}
@@ -59,8 +114,8 @@ export default function WeeklyView({ habitId, color }: WeeklyViewProps) {
                   isCompleted
                     ? ""
                     : isTodayDate
-                    ? "border-2 border-white"
-                    : "bg-surface"
+                      ? "border-2 border-white"
+                      : "bg-surface"
                 }`}
                 style={{
                   ...(isCompleted ? { backgroundColor: color } : {}),

@@ -1,8 +1,11 @@
+import { getAppTheme } from "@/constants/appThemes";
 import { useHabitStore } from "@/store/useHabitStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { ViewMode } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const MODES: { key: ViewMode; icon: string; label: string }[] = [
   { key: "time", icon: "timer-outline", label: "Time" },
@@ -13,13 +16,18 @@ const MODES: { key: ViewMode; icon: string; label: string }[] = [
 
 export default function ModeSwitcher() {
   const { viewMode, setViewMode } = useHabitStore();
+  const selectedTheme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(selectedTheme);
+  const insets = useSafeAreaInsets();
 
   return (
-    <View className="absolute bottom-6 left-4">
+    <View className="absolute left-4" style={{ bottom: insets.bottom + 12 }}>
       <View
-        className="flex-row items-center bg-[#18231d] rounded-[30px] p-2 border border-primary/40 shadow-xl"
+        className="flex-row items-center rounded-[30px] p-2 border shadow-xl"
         style={{
-          shadowColor: "#22c55e",
+          backgroundColor: appTheme.card,
+          borderColor: `${appTheme.primary}66`,
+          shadowColor: appTheme.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.15,
           shadowRadius: 10,
@@ -34,13 +42,14 @@ export default function ModeSwitcher() {
               <TouchableOpacity
                 onPress={() => setViewMode(mode.key)}
                 className={`flex-row items-center justify-center px-4 py-3 min-h-[44px] ${
-                  isActive ? "bg-[#4ade80] rounded-full" : "rounded-full"
+                  isActive ? "rounded-full" : "rounded-full"
                 }`}
                 activeOpacity={0.7}
                 style={
                   isActive
                     ? {
-                        shadowColor: "#4ade80",
+                        backgroundColor: appTheme.primaryLight,
+                        shadowColor: appTheme.primary,
                         shadowOffset: { width: 0, height: 0 },
                         shadowOpacity: 0.5,
                         shadowRadius: 8,
@@ -52,7 +61,7 @@ export default function ModeSwitcher() {
                 <Ionicons
                   name={mode.icon as any}
                   size={20}
-                  color={isActive ? "black" : "#9ca3af"}
+                  color={isActive ? "black" : appTheme.textSecondary}
                 />
                 {isActive && (
                   <Text className="text-black font-bold text-[13px] ml-2">

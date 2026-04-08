@@ -1,3 +1,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root,
+  .theme-dark-green {
+    --color-primary: #22c55e;
+    --color-primary-dark: #16a34a;
+    --color-primary-light: #4ade80;
+    --color-background: #0a0f0d;
+    --color-card: #151c18;
+    --color-card-border: #1e2a23;
+    --color-surface: #1a2420;
+    --color-bg-secondary: #111714;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #9ca3af;
+    --color-text-muted: #6b7280;
+  }
+
+  .theme-neon-blue {
+    --color-primary: #38bdf8;
+    --color-primary-dark: #0ea5e9;
+    --color-primary-light: #7dd3fc;
+    --color-background: #090e1a;
+    --color-card: #111a2d;
+    --color-card-border: #203151;
+    --color-surface: #17233d;
+    --color-bg-secondary: #152036;
+    --color-text-primary: #eff6ff;
+    --color-text-secondary: #bfdbfe;
+    --color-text-muted: #7c93b8;
+  }
+
+  .theme-ember {
+    --color-primary: #fb923c;
+    --color-primary-dark: #ea580c;
+    --color-primary-light: #fdba74;
+    --color-background: #110b09;
+    --color-card: #1f1411;
+    --color-card-border: #3b261e;
+    --color-surface: #291b16;
+    --color-bg-secondary: #18100d;
+    --color-text-primary: #fff7ed;
+    --color-text-secondary: #fed7aa;
+    --color-text-muted: #c9a38b;
+  }
+}

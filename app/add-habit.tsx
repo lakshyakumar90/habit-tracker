@@ -1,28 +1,27 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  ScrollView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import CategoryPicker from "@/components/habits/CategoryPicker";
+import ColorPicker from "@/components/habits/ColorPicker";
+import CompletionTarget from "@/components/habits/CompletionTarget";
+import IconPicker from "@/components/habits/IconPicker";
+import { DEFAULT_HABIT_COLOR } from "@/constants/Colors";
+import { habitRepository } from "@/services/habitRepository";
+import { FrequencyType, HabitType, Reminder } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import ColorPicker from "@/components/habits/ColorPicker";
-import IconPicker from "@/components/habits/IconPicker";
-import CompletionTarget from "@/components/habits/CompletionTarget";
-import CategoryPicker from "@/components/habits/CategoryPicker";
-import { useHabitStore } from "@/store/useHabitStore";
-import { HabitType, FrequencyType } from "@/types";
-import { DEFAULT_HABIT_COLOR } from "@/constants/Colors";
+import { router } from "expo-router";
+import React, { useState } from "react";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddHabitScreen() {
-  const { addHabit } = useHabitStore();
-
   const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_HABIT_COLOR);
   const [icon, setIcon] = useState("paw");
@@ -33,13 +32,36 @@ export default function AddHabitScreen() {
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showReminders, setShowReminders] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+
+  const addReminder = () => {
+    setReminders((current) => [
+      ...current,
+      {
+        id: `${Date.now()}-${current.length}`,
+        time: "09:00",
+        enabled: true,
+      },
+    ]);
+  };
+
+  const updateReminder = (id: string, updates: Partial<Reminder>) => {
+    setReminders((current) =>
+      current.map((reminder) =>
+        reminder.id === id ? { ...reminder, ...updates } : reminder,
+      ),
+    );
+  };
+
+  const removeReminder = (id: string) => {
+    setReminders((current) => current.filter((reminder) => reminder.id !== id));
+  };
 
   const handleSave = () => {
     if (!name.trim()) return;
 
-    addHabit({
+    habitRepository.addHabit({
       name: name.trim(),
       type: habitType,
       color,
@@ -48,7 +70,7 @@ export default function AddHabitScreen() {
       frequency,
       targetCount: completionTargetEnabled ? targetCount : 1,
       days: selectedDays,
-      reminders: [],
+      reminders,
       completionTargetEnabled,
     });
 
@@ -56,7 +78,7 @@ export default function AddHabitScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg">
+    <SafeAreaView className="flex-1 bg-bg" edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -183,7 +205,10 @@ export default function AddHabitScreen() {
             className="flex-row items-center justify-center py-3 mb-4"
             activeOpacity={0.7}
           >
-            <View className="flex-1 h-px bg-cardBorder" style={{ borderStyle: "dashed" }} />
+            <View
+              className="flex-1 h-px bg-cardBorder"
+              style={{ borderStyle: "dashed" }}
+            />
             <View className="flex-row items-center mx-4">
               <Text className="text-textMuted font-medium mr-1">Advanced</Text>
               <Ionicons
@@ -198,22 +223,79 @@ export default function AddHabitScreen() {
           {showAdvanced && (
             <View className="gap-3 mb-6">
               {/* Reminders */}
-              <TouchableOpacity
-                onPress={() => setShowReminders(true)}
-                className="bg-surface rounded-2xl border border-cardBorder p-4 flex-row items-center"
-                activeOpacity={0.7}
-              >
+              <View className="bg-surface rounded-2xl border border-cardBorder p-4">
                 <View className="w-10 h-10 rounded-xl bg-primary/10 items-center justify-center">
                   <Ionicons name="notifications" size={20} color="#22c55e" />
                 </View>
-                <View className="flex-1 ml-3">
+                <View className="ml-3 mt-2">
                   <Text className="text-white font-semibold">Reminders</Text>
                   <Text className="text-textMuted text-sm">
-                    Stay on track with notifications
+                    Add multiple times in HH:MM (24-hour) format
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#6b7280" />
-              </TouchableOpacity>
+
+                <View className="mt-3 gap-2">
+                  {reminders.map((reminder) => (
+                    <View
+                      key={reminder.id}
+                      className="bg-card rounded-xl border border-cardBorder p-3"
+                    >
+                      <View className="flex-row items-center justify-between mb-2">
+                        <Text className="text-textMuted text-xs">
+                          Reminder time
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => removeReminder(reminder.id)}
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={16}
+                            color="#f87171"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <TextInput
+                          value={reminder.time}
+                          onChangeText={(value) =>
+                            updateReminder(reminder.id, {
+                              time: value.replace(/[^0-9:]/g, "").slice(0, 5),
+                            })
+                          }
+                          keyboardType={
+                            Platform.OS === "ios"
+                              ? "numbers-and-punctuation"
+                              : "numeric"
+                          }
+                          placeholder="09:00"
+                          placeholderTextColor="#6b7280"
+                          className="text-white text-base flex-1 mr-3"
+                          maxLength={5}
+                        />
+                        <Switch
+                          value={reminder.enabled}
+                          onValueChange={(value) =>
+                            updateReminder(reminder.id, { enabled: value })
+                          }
+                          trackColor={{ false: "#4b5563", true: "#22c55e" }}
+                          thumbColor="#f3f4f6"
+                        />
+                      </View>
+                    </View>
+                  ))}
+
+                  <TouchableOpacity
+                    onPress={addReminder}
+                    className="rounded-xl border border-dashed border-cardBorder py-2.5 items-center"
+                    activeOpacity={0.7}
+                  >
+                    <Text className="text-primary font-semibold">
+                      + Add reminder
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               {/* Categories */}
               <TouchableOpacity
@@ -246,9 +328,7 @@ export default function AddHabitScreen() {
           >
             <LinearGradient
               colors={
-                name.trim()
-                  ? ["#4ade80", "#22c55e"]
-                  : ["#374151", "#374151"]
+                name.trim() ? ["#4ade80", "#22c55e"] : ["#374151", "#374151"]
               }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}

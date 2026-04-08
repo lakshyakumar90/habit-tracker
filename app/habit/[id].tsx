@@ -9,6 +9,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { habitRepository } from "@/services/habitRepository";
 import { useHabitStore } from "@/store/useHabitStore";
 import { calculateStreak } from "@/utils/streak";
 import HabitGrid from "@/components/habits/HabitGrid";
@@ -16,7 +17,7 @@ import WeeklyView from "@/components/habits/WeeklyView";
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habits, logs, deleteHabit, archiveHabit } = useHabitStore();
+  const { habits, logs } = useHabitStore();
 
   const habit = habits.find((h) => h.id === id);
 
@@ -43,7 +44,7 @@ export default function HabitDetailScreen() {
         text: "Delete",
         style: "destructive",
         onPress: () => {
-          deleteHabit(habit.id);
+          habitRepository.deleteHabit(habit.id);
           router.back();
         },
       },
@@ -56,7 +57,7 @@ export default function HabitDetailScreen() {
       {
         text: "Archive",
         onPress: () => {
-          archiveHabit(habit.id);
+          habitRepository.archiveHabit(habit.id);
           router.back();
         },
       },

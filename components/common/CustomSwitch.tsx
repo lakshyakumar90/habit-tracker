@@ -1,8 +1,8 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { TouchableOpacity } from "react-native";
 import Animated, {
-  useAnimatedStyle,
-  withTiming,
+    useAnimatedStyle,
+    withTiming,
 } from "react-native-reanimated";
 
 interface CustomSwitchProps {
@@ -29,10 +29,7 @@ export default function CustomSwitch({
   }));
 
   return (
-    <TouchableOpacity
-      onPress={() => onValueChange(!value)}
-      activeOpacity={0.8}
-    >
+    <TouchableOpacity onPress={() => onValueChange(!value)} activeOpacity={0.8}>
       <Animated.View
         style={[
           {

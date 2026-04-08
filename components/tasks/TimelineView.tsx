@@ -1,13 +1,14 @@
-import React, { useState, useMemo } from "react";
-import { View, Text, TouchableOpacity, TextInput } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { subDays, format, isToday } from "date-fns";
-import { formatDate } from "@/utils/dates";
+import { taskRepository } from "@/services/taskRepository";
 import { useTaskStore } from "@/store/useTaskStore";
+import { formatDate } from "@/utils/dates";
+import { Ionicons } from "@expo/vector-icons";
+import { format, isToday, subDays } from "date-fns";
+import React, { useMemo, useState } from "react";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import TaskItem from "./TaskItem";
 
 export default function TimelineView() {
-  const { tasks, addTask, toggleTask, deleteTask } = useTaskStore();
+  const { tasks, selectedListId } = useTaskStore();
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState("");
 
@@ -28,23 +29,23 @@ export default function TimelineView() {
 
   const handleAddTask = (dateStr: string) => {
     if (!newTaskText.trim()) return;
-    addTask(newTaskText.trim(), dateStr);
+    taskRepository.addTask(newTaskText.trim(), dateStr, selectedListId);
     setNewTaskText("");
   };
 
   return (
     <View className="px-4">
       {dates.map((d) => {
-        const dateTasks = tasks.filter((t) => t.date === d.dateStr);
+        const dateTasks = tasks.filter(
+          (t) => t.date === d.dateStr && t.listId === selectedListId,
+        );
         const isExpanded = expandedDate === d.dateStr;
         const hasActiveTasks = dateTasks.some((t) => !t.completed);
 
         return (
           <View key={d.dateStr} className="mb-1">
             <TouchableOpacity
-              onPress={() =>
-                setExpandedDate(isExpanded ? null : d.dateStr)
-              }
+              onPress={() => setExpandedDate(isExpanded ? null : d.dateStr)}
               className="flex-row items-center py-3"
               activeOpacity={0.7}
             >
@@ -54,8 +55,8 @@ export default function TimelineView() {
                   d.isToday
                     ? "bg-primary"
                     : hasActiveTasks
-                    ? "bg-textMuted"
-                    : "bg-surface border border-cardBorder"
+                      ? "bg-textMuted"
+                      : "bg-surface border border-cardBorder"
                 }`}
               />
 
@@ -66,9 +67,7 @@ export default function TimelineView() {
                 }`}
               >
                 {d.display}{" "}
-                <Text className="text-textMuted font-normal">
-                  {d.dayName}
-                </Text>
+                <Text className="text-textMuted font-normal">{d.dayName}</Text>
               </Text>
 
               {/* Expand / Add */}
@@ -92,8 +91,8 @@ export default function TimelineView() {
                   <TaskItem
                     key={task.id}
                     task={task}
-                    onToggle={() => toggleTask(task.id)}
-                    onDelete={() => deleteTask(task.id)}
+                    onToggle={() => taskRepository.toggleTask(task.id)}
+                    onDelete={() => taskRepository.deleteTask(task.id)}
                   />
                 ))}
 

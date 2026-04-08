@@ -1,7 +1,10 @@
+import { habitRepository } from "@/services/habitRepository";
 import { useHabitStore } from "@/store/useHabitStore";
-import { eachDayOfInterval, format, getDay, subMonths } from "date-fns";
-import React, { useEffect, useMemo, useRef } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { eachDayOfInterval, format, getDay, subMonths, startOfMonth, endOfMonth, isSameMonth, addMonths, isSameDay, startOfWeek, endOfWeek, addDays } from "date-fns";
+import * as Haptics from "expo-haptics";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, View, Modal, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 interface HabitGridProps {
   habitId: string;
@@ -14,8 +17,11 @@ export default function HabitGrid({
   color,
   months = 5,
 }: HabitGridProps) {
-  const { logs } = useHabitStore();
+  const { logs, habits } = useHabitStore();
+  const habit = habits.find((h) => h.id === habitId);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     // Scroll to the end to show the current month by default
@@ -73,12 +79,105 @@ export default function HabitGrid({
     return { rows: rowsMap, monthLabels: labels };
   }, [habitId, logs, months]);
 
+  const handleCellPress = (dateStr: string, completed: boolean) => {
+    if (!dateStr) return;
+    if (!completed) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    habitRepository.toggleHabit(habitId, dateStr);
+  };
+
+  const renderModalCalendar = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const dateFormat = "yyyy-MM-dd";
+    const rows: Date[][] = [];
+
+    let days = [];
+    let day = startDate;
+    let formattedDate = "";
+
+    while (day <= endDate) {
+      for (let i = 0; i < 7; i++) {
+        days.push(day);
+        day = addDays(day, 1);
+      }
+      rows.push(days);
+      days = [];
+    }
+
+    return (
+      <View className="bg-card rounded-3xl m-4 border border-cardBorder overflow-hidden">
+        <View className="flex-row items-center justify-between p-5 border-b border-cardBorder">
+          <Text className="text-white font-bold text-lg">{habit?.name}</Text>
+          <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={10}>
+            <Ionicons name="close" size={24} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+
+        <View className="p-5">
+          <View className="flex-row items-center justify-between mb-6">
+            <TouchableOpacity onPress={() => setCurrentMonth(subMonths(currentMonth, 1))} hitSlop={10}>
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text className="text-white font-bold text-lg">{format(currentMonth, "MMMM yyyy")}</Text>
+            <TouchableOpacity onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} hitSlop={10}>
+              <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="flex-row mb-3">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
+              <Text key={i} className="flex-1 text-center text-textMuted text-xs font-semibold">{d}</Text>
+            ))}
+          </View>
+
+          {rows.map((row, i) => (
+            <View key={i} className="flex-row mb-3">
+              {row.map((d, j) => {
+                const dateStr = format(d, dateFormat);
+                const isCompleted = (logs[`${habitId}_${dateStr}`] || 0) > 0;
+                const isCurrentMonth = isSameMonth(d, monthStart);
+                const isFuture = d > new Date();
+
+                return (
+                  <TouchableOpacity
+                    key={j}
+                    className={`flex-1 h-12 mx-1 rounded-xl items-center justify-center border border-cardBorder ${isCompleted ? '' : 'bg-surface'}`}
+                    style={[
+                      isCompleted ? { backgroundColor: color, borderColor: color } : {},
+                      !isCurrentMonth ? { opacity: 0.3 } : {}
+                    ]}
+                    disabled={!isCurrentMonth || isFuture}
+                    onPress={() => handleCellPress(dateStr, isCompleted)}
+                  >
+                    <Text className={`font-semibold ${isCompleted ? 'text-black' : 'text-textMuted'}`}>
+                      {format(d, "d")}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   const CELL_SIZE = 9;
   const GAP = 2;
   const ROW_LABELS = ["M", "", "W", "", "F", "", "S"];
 
   return (
     <View className="mt-2">
+      <Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <View className="flex-1 bg-black/70 justify-center">
+          {renderModalCalendar()}
+        </View>
+      </Modal>
+
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -86,7 +185,7 @@ export default function HabitGrid({
         contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
         className="outline-none"
       >
-        <View className="outline-none border-none">
+        <Pressable className="outline-none border-none" onPress={() => { setModalVisible(true); setCurrentMonth(new Date()); }}>
           {/* Month labels */}
           <View className="flex-row mb-1 ml-3" style={{ height: 14 }}>
             {monthLabels.map((ml, i) => (
@@ -136,7 +235,7 @@ export default function HabitGrid({
               ))}
             </View>
           ))}
-        </View>
+        </Pressable>
       </ScrollView>
     </View>
   );

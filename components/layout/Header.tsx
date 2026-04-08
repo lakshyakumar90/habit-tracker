@@ -1,52 +1,55 @@
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { THEME_OPTIONS, getAppTheme } from "@/constants/appThemes";
+import { settingsRepository } from "@/services/settingsRepository";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { router } from "expo-router";
 import React from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 
 export default function Header() {
   const today = new Date();
+  const { theme, cloudSyncEnabled, cloudSyncStatus } = useSettingsStore();
+  const appTheme = getAppTheme(theme);
+
+  const handleCycleTheme = () => {
+    const currentIndex = THEME_OPTIONS.findIndex((opt) => opt.key === theme);
+    const nextIndex = (currentIndex + 1) % THEME_OPTIONS.length;
+    settingsRepository.updateSetting("theme", THEME_OPTIONS[nextIndex].key);
+  };
 
   return (
     <View className="px-4 py-3">
       <View className="flex-row items-center justify-between">
-        <Text className="text-white text-xl font-bold">
+        <Text
+          className="text-xl font-bold"
+          style={{ color: appTheme.textPrimary }}
+        >
           Today, {format(today, "do MMM")}
         </Text>
         <View className="flex-row items-center gap-1">
-          <TouchableOpacity
-            className="relative p-2"
-            onPress={() =>
-              Alert.alert(
-                "Coming Soon",
-                "Themes are coming in a future update!",
-              )
-            }
-          >
-            <Ionicons name="color-wand" size={24} color="#6b7280" />
-            <View className="absolute bottom-1.5 right-1 bg-bg p-0.5 rounded-full">
-              <Ionicons name="lock-closed" size={10} color="#22c55e" />
-            </View>
+          <TouchableOpacity className="relative p-2" onPress={handleCycleTheme}>
+            <Ionicons name="color-wand" size={24} color={appTheme.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             className="relative p-2"
-            onPress={() =>
-              Alert.alert(
-                "Coming Soon",
-                "Cloud Sync is coming in a future update!",
-              )
-            }
+            onPress={() => router.push("/settings")}
           >
-            <Ionicons name="cloud-outline" size={24} color="#6b7280" />
-            <View className="absolute bottom-1.5 right-1 bg-bg p-0.5 rounded-full">
-              <Ionicons name="lock-closed" size={10} color="#22c55e" />
-            </View>
+            <Ionicons
+              name={cloudSyncEnabled ? "cloud-done" : "cloud-outline"}
+              size={24}
+              color={
+                cloudSyncEnabled || cloudSyncStatus === "migrating"
+                  ? appTheme.primary
+                  : appTheme.textMuted
+              }
+            />
           </TouchableOpacity>
           <TouchableOpacity
             className="p-2"
             onPress={() => router.push("/settings")}
           >
-            <Ionicons name="settings" size={24} color="#22c55e" />
+            <Ionicons name="settings" size={24} color={appTheme.primary} />
           </TouchableOpacity>
         </View>
       </View>
