@@ -1,3 +1,5 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
@@ -11,6 +13,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function WidgetsScreen() {
+  const theme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(theme);
+
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top", "left", "right"]}>
       <View className="flex-row items-center px-4 py-3">
@@ -26,7 +31,13 @@ export default function WidgetsScreen() {
         className="flex-1 px-4"
         contentContainerStyle={{ paddingBottom: 28 }}
       >
-        <View className="bg-card rounded-2xl border border-cardBorder p-4 mb-4">
+        <View
+          className="rounded-2xl border p-4 mb-4"
+          style={{
+            backgroundColor: appTheme.card,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
           <Text className="text-white font-semibold text-base mb-1">
             Current status
           </Text>
@@ -36,7 +47,13 @@ export default function WidgetsScreen() {
           </Text>
         </View>
 
-        <View className="bg-card rounded-2xl border border-cardBorder p-4 mb-4">
+        <View
+          className="rounded-2xl border p-4 mb-4"
+          style={{
+            backgroundColor: appTheme.card,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
           <Text className="text-white font-semibold text-base mb-2">
             What is planned
           </Text>
@@ -51,7 +68,13 @@ export default function WidgetsScreen() {
           </Text>
         </View>
 
-        <View className="bg-card rounded-2xl border border-cardBorder p-4">
+        <View
+          className="rounded-2xl border p-4"
+          style={{
+            backgroundColor: appTheme.card,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
           <Text className="text-white font-semibold text-base mb-2">
             Platform notes
           </Text>

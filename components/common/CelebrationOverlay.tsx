@@ -1,8 +1,9 @@
 import { useCelebrationStore } from "@/store/useCelebrationStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { getAppTheme } from "@/constants/appThemes";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
 
-const COLORS = ["#4ade80", "#60a5fa", "#f59e0b", "#f472b6", "#22d3ee"];
 const PARTICLE_COUNT = 24;
 
 interface Particle {
@@ -16,22 +17,29 @@ interface Particle {
 
 export default function CelebrationOverlay() {
   const { visible, burstKey, hideBurst } = useCelebrationStore();
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
   const progressValues = useRef(
     Array.from({ length: PARTICLE_COUNT }, () => new Animated.Value(0)),
   ).current;
 
-  const particles = useMemo<Particle[]>(
-    () =>
-      Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
-        x: (i - PARTICLE_COUNT / 2) * 10 + Math.random() * 20,
-        size: 5 + Math.random() * 7,
-        rotate: Math.random() * 220 - 110,
-        color: COLORS[(i + burstKey) % COLORS.length],
-        delay: Math.random() * 220,
-        duration: 700 + Math.random() * 600,
-      })),
-    [burstKey],
-  );
+  const particles = useMemo<Particle[]>(() => {
+    const colors = [
+      appTheme.primaryLight,
+      "#60a5fa",
+      "#f59e0b",
+      "#f472b6",
+      "#22d3ee",
+    ];
+    return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+      x: (i - PARTICLE_COUNT / 2) * 10 + Math.random() * 20,
+      size: 5 + Math.random() * 7,
+      rotate: Math.random() * 220 - 110,
+      color: colors[(i + burstKey) % colors.length],
+      delay: Math.random() * 220,
+      duration: 700 + Math.random() * 600,
+    }));
+  }, [burstKey, appTheme.primaryLight]);
 
   useEffect(() => {
     if (!visible) return;

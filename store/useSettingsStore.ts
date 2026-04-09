@@ -30,6 +30,7 @@ const syncedSettingKeys: (keyof AppSettings)[] = [
   "soundEnabled",
   "confettiEnabled",
   "tickSoundEnabled",
+  "tickSound",
   "celebrationSound",
   "celebrationVolume",
 ];
@@ -59,6 +60,7 @@ export const useSettingsStore = create<SettingsState>()(
       soundEnabled: true,
       confettiEnabled: true,
       tickSoundEnabled: true,
+      tickSound: "tick",
       celebrationSound: "sparkle",
       celebrationVolume: 0.7,
       cloudSyncEnabled: false,

@@ -1,3 +1,5 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import React from "react";
 import { View, ViewStyle } from "react-native";
 
@@ -9,17 +11,22 @@ interface GlowCardProps {
 }
 
 export default function GlowCard({
-  glowColor = "#22c55e",
+  glowColor,
   children,
   className = "",
   style,
 }: GlowCardProps) {
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
+  const color = glowColor ?? appTheme.primary;
   return (
     <View
-      className={`bg-card rounded-2xl border border-cardBorder p-4 ${className}`}
+      className={`rounded-3xl border p-6 ${className}`}
       style={[
         {
-          shadowColor: glowColor,
+          backgroundColor: appTheme.card,
+          borderColor: appTheme.cardBorder,
+          shadowColor: color,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.15,
           shadowRadius: 12,

@@ -1,27 +1,68 @@
 import { habitRepository } from "@/services/habitRepository";
 import { useHabitStore } from "@/store/useHabitStore";
-import { eachDayOfInterval, format, getDay, subMonths, startOfMonth, endOfMonth, isSameMonth, addMonths, isSameDay, startOfWeek, endOfWeek, addDays } from "date-fns";
+import {
+  getReadableTextColor,
+  lightenHexColor,
+  mixHexColors,
+} from "@/utils/helpers";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  addDays,
+  addMonths,
+  differenceInCalendarWeeks,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  getDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View, Modal, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  LayoutChangeEvent,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 
 interface HabitGridProps {
   habitId: string;
   color: string;
   months?: number;
+  monthModalBgColor?: string;
 }
 
 export default function HabitGrid({
   habitId,
   color,
-  months = 5,
+  months = 12,
+  monthModalBgColor,
 }: HabitGridProps) {
   const { logs, habits } = useHabitStore();
   const habit = habits.find((h) => h.id === habitId);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [modalVisible, setModalVisible] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const heatmapBg = mixHexColors(color, "#121823", 0.84);
+  const heatmapBorder = mixHexColors(color, "#273447", 0.72);
+  const heatmapEmpty = mixHexColors(color, "#1b2534", 0.8);
+  const labelColor = lightenHexColor(color, 0.44);
+  const modalBg = monthModalBgColor ?? mixHexColors(color, "#121a25", 0.8);
+  const modalUiColor = lightenHexColor(color, 0.32);
+  const modalSubtleBorder = mixHexColors(color, "#2b3b52", 0.7);
+  const modalDayIdleBg = mixHexColors(color, "#182333", 0.78);
+  const modalDayTextColor = lightenHexColor(color, 0.44);
+  const completedDayTextColor = getReadableTextColor(color);
 
   useEffect(() => {
     // Scroll to the end to show the current month by default
@@ -34,6 +75,7 @@ export default function HabitGrid({
     const today = new Date();
     const start = subMonths(today, months - 1);
     start.setDate(1);
+    const gridStart = startOfWeek(start, { weekStartsOn: 1 });
 
     const allDays = eachDayOfInterval({ start, end: today });
 
@@ -45,18 +87,13 @@ export default function HabitGrid({
 
     const labels: { label: string; index: number }[] = [];
     let lastMonth = "";
-    let weekIndex = 0;
-    let prevDow = -1;
 
     allDays.forEach((day) => {
+      const weekIndex = differenceInCalendarWeeks(day, gridStart, {
+        weekStartsOn: 1,
+      });
       const dow = getDay(day); // 0=Sun
       const row = dow === 0 ? 6 : dow - 1; // Mon=0, Sun=6
-
-      // Track week changes for column alignment
-      if (dow === 1 || (prevDow > dow && prevDow !== -1)) {
-        weekIndex++;
-      }
-      prevDow = dow;
 
       const monthStr = format(day, "MMM ''yy");
       if (monthStr !== lastMonth) {
@@ -68,12 +105,27 @@ export default function HabitGrid({
       const key = `${habitId}_${dateStr}`;
       const completed = (logs[key] || 0) > 0;
 
-      // Pad rows to align columns
-      while (rowsMap[row].length < weekIndex) {
+      while (rowsMap[row].length <= weekIndex) {
         rowsMap[row].push({ dateStr: "", completed: false });
       }
+      rowsMap[row][weekIndex] = { dateStr, completed };
+    });
 
-      rowsMap[row].push({ dateStr, completed });
+    const maxColumns = rowsMap.reduce(
+      (max, row) => Math.max(max, row.length),
+      0,
+    );
+
+    rowsMap.forEach((row) => {
+      while (row.length < maxColumns) {
+        row.push({ dateStr: "", completed: false });
+      }
+
+      for (let column = 0; column < row.length; column++) {
+        if (!row[column]) {
+          row[column] = { dateStr: "", completed: false };
+        }
+      }
     });
 
     return { rows: rowsMap, monthLabels: labels };
@@ -109,28 +161,54 @@ export default function HabitGrid({
     }
 
     return (
-      <View className="bg-card rounded-3xl m-4 border border-cardBorder overflow-hidden">
-        <View className="flex-row items-center justify-between p-5 border-b border-cardBorder">
-          <Text className="text-white font-bold text-lg">{habit?.name}</Text>
-          <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={10}>
-            <Ionicons name="close" size={24} color="#9ca3af" />
+      <View className="overflow-hidden pb-8">
+        <View className="items-center py-3">
+          <View
+            className="w-12 h-1.5 rounded-full"
+            style={{ backgroundColor: modalUiColor }}
+          />
+        </View>
+
+        <View
+          className="flex-row items-center justify-between px-5 pb-4 border-b"
+          style={{ borderBottomColor: modalSubtleBorder }}
+        >
+          <Text className="font-bold text-lg" style={{ color: modalUiColor }}>
+            {habit?.name}
+          </Text>
+          <TouchableOpacity onPress={() => setShowCalendar(false)} hitSlop={10}>
+            <Ionicons name="close" size={24} color={modalUiColor} />
           </TouchableOpacity>
         </View>
 
         <View className="p-5">
           <View className="flex-row items-center justify-between mb-6">
-            <TouchableOpacity onPress={() => setCurrentMonth(subMonths(currentMonth, 1))} hitSlop={10}>
-              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            <TouchableOpacity
+              onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={24} color={modalUiColor} />
             </TouchableOpacity>
-            <Text className="text-white font-bold text-lg">{format(currentMonth, "MMMM yyyy")}</Text>
-            <TouchableOpacity onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} hitSlop={10}>
-              <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+            <Text className="font-bold text-lg" style={{ color: modalUiColor }}>
+              {format(currentMonth, "MMMM yyyy")}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-forward" size={24} color={modalUiColor} />
             </TouchableOpacity>
           </View>
 
           <View className="flex-row mb-3">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
-              <Text key={i} className="flex-1 text-center text-textMuted text-xs font-semibold">{d}</Text>
+              <Text
+                key={i}
+                className="flex-1 text-center text-xs font-semibold"
+                style={{ color: labelColor }}
+              >
+                {d}
+              </Text>
             ))}
           </View>
 
@@ -145,15 +223,34 @@ export default function HabitGrid({
                 return (
                   <TouchableOpacity
                     key={j}
-                    className={`flex-1 h-12 mx-1 rounded-xl items-center justify-center border border-cardBorder ${isCompleted ? '' : 'bg-surface'}`}
+                    className="flex-1 h-12 mx-1 rounded-xl items-center justify-center border"
                     style={[
-                      isCompleted ? { backgroundColor: color, borderColor: color } : {},
-                      !isCurrentMonth ? { opacity: 0.3 } : {}
+                      isCompleted
+                        ? { backgroundColor: color, borderColor: color }
+                        : {
+                            backgroundColor: modalDayIdleBg,
+                            borderColor: modalSubtleBorder,
+                          },
+                      !isCurrentMonth
+                        ? {
+                            backgroundColor: heatmapBg,
+                            borderColor: heatmapBorder,
+                          }
+                        : {},
                     ]}
                     disabled={!isCurrentMonth || isFuture}
                     onPress={() => handleCellPress(dateStr, isCompleted)}
                   >
-                    <Text className={`font-semibold ${isCompleted ? 'text-black' : 'text-textMuted'}`}>
+                    <Text
+                      className="font-semibold"
+                      style={{
+                        color: isCompleted
+                          ? completedDayTextColor
+                          : isCurrentMonth
+                            ? modalDayTextColor
+                            : labelColor,
+                      }}
+                    >
                       {format(d, "d")}
                     </Text>
                   </TouchableOpacity>
@@ -166,36 +263,77 @@ export default function HabitGrid({
     );
   };
 
-  const CELL_SIZE = 9;
-  const GAP = 2;
+  const CELL_SIZE = 12;
+  const CELL_GAP = 3;
+  const ROW_LABEL_WIDTH = 12;
+  const ROW_LABEL_GAP = 3;
+  const GRID_LABEL_OFFSET = ROW_LABEL_WIDTH + ROW_LABEL_GAP;
   const ROW_LABELS = ["M", "", "W", "", "F", "", "S"];
+  const columnCount = rows[0]?.length ?? 0;
+  const intrinsicGridWidth =
+    GRID_LABEL_OFFSET +
+    columnCount * CELL_SIZE +
+    Math.max(0, columnCount - 1) * CELL_GAP;
+  const minGridWidth = Math.max(0, containerWidth - 8);
+
+  const handleContainerLayout = (event: LayoutChangeEvent) => {
+    const width = Math.floor(event.nativeEvent.layout.width);
+    if (width !== containerWidth) {
+      setContainerWidth(width);
+    }
+  };
 
   return (
-    <View className="mt-2">
-      <Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 bg-black/70 justify-center">
-          {renderModalCalendar()}
-        </View>
+    <View className="mt-2" onLayout={handleContainerLayout}>
+      <Modal
+        visible={showCalendar}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCalendar(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowCalendar(false)}>
+          <View className="flex-1 bg-black/60 justify-end">
+            <TouchableWithoutFeedback>
+              <View
+                className="rounded-t-3xl"
+                style={{
+                  backgroundColor: modalBg,
+                  maxHeight: "90%",
+                }}
+              >
+                {renderModalCalendar()}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       <ScrollView
         ref={scrollViewRef}
         horizontal
+        scrollEnabled
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+        contentContainerStyle={{ paddingRight: 4 }}
         className="outline-none"
       >
-        <Pressable className="outline-none border-none" onPress={() => { setModalVisible(true); setCurrentMonth(new Date()); }}>
+        <Pressable
+          className="outline-none border-none"
+          style={{ width: intrinsicGridWidth, minWidth: minGridWidth }}
+          onPress={() => {
+            setCurrentMonth(new Date());
+            setShowCalendar(true);
+          }}
+        >
           {/* Month labels */}
-          <View className="flex-row mb-1 ml-3" style={{ height: 14 }}>
+          <View className="flex-row mb-2 ml-3" style={{ height: 18 }}>
             {monthLabels.map((ml, i) => (
               <Text
                 key={i}
-                className="text-textMuted"
                 style={{
-                  fontSize: 8,
+                  fontSize: 9,
                   position: "absolute",
-                  left: ml.index * (CELL_SIZE + GAP) + 12,
+                  color: labelColor,
+                  left: ml.index * (CELL_SIZE + CELL_GAP) + GRID_LABEL_OFFSET,
                 }}
               >
                 {ml.label}
@@ -210,8 +348,13 @@ export default function HabitGrid({
               className="flex-row items-center border-none outline-none"
             >
               <Text
-                className="text-textMuted mr-1"
-                style={{ fontSize: 7, width: 10, textAlign: "center" }}
+                style={{
+                  fontSize: 8,
+                  width: ROW_LABEL_WIDTH,
+                  marginRight: ROW_LABEL_GAP,
+                  textAlign: "center",
+                  color: labelColor,
+                }}
               >
                 {ROW_LABELS[rowIndex]}
               </Text>
@@ -221,14 +364,14 @@ export default function HabitGrid({
                   style={{
                     width: CELL_SIZE,
                     height: CELL_SIZE,
-                    margin: GAP / 2,
-                    borderRadius: 2,
+                    marginRight: CELL_GAP,
+                    marginBottom: CELL_GAP,
+                    borderRadius: 3,
                     backgroundColor: cell.dateStr
                       ? cell.completed
                         ? color
-                        : "#1a2420"
+                        : heatmapEmpty
                       : "transparent",
-                    opacity: cell.completed ? 1 : cell.dateStr ? 0.4 : 0,
                   }}
                   className="outline-none border-none border-transparent"
                 />

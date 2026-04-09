@@ -1,4 +1,6 @@
+import { getAppTheme } from "@/constants/appThemes";
 import { taskRepository } from "@/services/taskRepository";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { getTodayString } from "@/utils/dates";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,12 +15,9 @@ import {
 import TaskItem from "./TaskItem";
 
 export default function AllTasksView() {
-  const {
-    tasks,
-    taskLists,
-    selectedListId,
-    setSelectedList,
-  } = useTaskStore();
+  const { tasks, taskLists, selectedListId, setSelectedList } = useTaskStore();
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
   const [newTaskText, setNewTaskText] = useState("");
   const [newListName, setNewListName] = useState("");
   const [showNewListInput, setShowNewListInput] = useState(false);
@@ -34,7 +33,11 @@ export default function AllTasksView() {
 
   const handleAddTask = () => {
     if (!newTaskText.trim()) return;
-    taskRepository.addTask(newTaskText.trim(), getTodayString(), activeList?.id);
+    taskRepository.addTask(
+      newTaskText.trim(),
+      getTodayString(),
+      activeList?.id,
+    );
     setNewTaskText("");
   };
 
@@ -45,89 +48,113 @@ export default function AllTasksView() {
     setShowNewListInput(false);
   };
 
-  return (
-    <View className="px-4">
-      {/* Header */}
-      <View className="flex-row items-center mb-4">
-        <Text className="text-primary font-bold text-base border-b-2 border-primary pb-1">
-          {activeList?.name || "My Tasks"}
-        </Text>
-        <TouchableOpacity
-          className="ml-3 w-7 h-7 rounded-full bg-surface border border-cardBorder items-center justify-center"
-          onPress={() => {
-            setShowNewListInput(true);
-            setTimeout(() => listInputRef.current?.focus(), 50);
-          }}
-        >
-          <Ionicons name="add" size={16} color="#22c55e" />
-        </TouchableOpacity>
-      </View>
+  const openInlineListInput = () => {
+    setShowNewListInput(true);
+    setTimeout(() => listInputRef.current?.focus(), 50);
+  };
 
-      {/* Task List Tabs */}
+  return (
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Task List Tabs + Inline Add */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="mb-3"
+        className="mb-4"
       >
-        <View className="flex-row gap-2">
+        <View className="flex-row items-center gap-2 pr-2">
           {taskLists.map((list) => {
             const isActive = list.id === activeList?.id;
             return (
               <TouchableOpacity
                 key={list.id}
                 onPress={() => setSelectedList(list.id)}
-                className={`px-3 py-2 rounded-xl border ${
-                  isActive
-                    ? "bg-primary/20 border-primary"
-                    : "bg-surface border-cardBorder"
-                }`}
+                className="px-3 py-2 rounded-xl border"
+                style={{
+                  backgroundColor: isActive
+                    ? `${appTheme.primary}33`
+                    : appTheme.surface,
+                  borderColor: isActive
+                    ? appTheme.primary
+                    : appTheme.cardBorder,
+                }}
                 activeOpacity={0.7}
               >
                 <Text
-                  className={
-                    isActive
-                      ? "text-primary font-semibold"
-                      : "text-textSecondary"
-                  }
+                  className={isActive ? "font-semibold" : ""}
+                  style={{
+                    color: isActive ? appTheme.primary : appTheme.textSecondary,
+                  }}
                 >
                   {list.name}
                 </Text>
               </TouchableOpacity>
             );
           })}
+
+          {showNewListInput ? (
+            <View
+              className="flex-row items-center border rounded-xl px-3 py-2 min-w-[170px]"
+              style={{
+                backgroundColor: appTheme.surface,
+                borderColor: `${appTheme.primary}66`,
+              }}
+            >
+              <TextInput
+                ref={listInputRef}
+                value={newListName}
+                onChangeText={setNewListName}
+                placeholder="New tab"
+                placeholderTextColor={appTheme.textMuted}
+                className="flex-1"
+                style={{ color: appTheme.textPrimary }}
+                onSubmitEditing={handleCreateList}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                onPress={handleCreateList}
+                className="ml-2"
+                hitSlop={10}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={appTheme.primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowNewListInput(false);
+                  setNewListName("");
+                }}
+                className="ml-1"
+                hitSlop={10}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={appTheme.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              className="w-8 h-8 rounded-full border items-center justify-center"
+              style={{
+                backgroundColor: appTheme.surface,
+                borderColor: appTheme.cardBorder,
+              }}
+              onPress={openInlineListInput}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={16} color={appTheme.primary} />
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
-
-      {showNewListInput && (
-        <View className="flex-row items-center mb-4 bg-surface border border-primary/40 rounded-xl px-3 py-2">
-          <TextInput
-            ref={listInputRef}
-            value={newListName}
-            onChangeText={setNewListName}
-            placeholder="Name this task tab"
-            placeholderTextColor="#6b7280"
-            className="flex-1 text-white"
-            onSubmitEditing={handleCreateList}
-          />
-          <TouchableOpacity
-            onPress={handleCreateList}
-            className="ml-2"
-            hitSlop={10}
-          >
-            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              setShowNewListInput(false);
-              setNewListName("");
-            }}
-            className="ml-2"
-            hitSlop={10}
-          >
-            <Ionicons name="close-circle" size={22} color="#6b7280" />
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Add Task Input */}
       <View className="flex-row items-center mb-4">
@@ -139,17 +166,19 @@ export default function AllTasksView() {
               inputRef.current?.focus();
             }
           }}
-          className="w-7 h-7 rounded-full bg-primary/20 items-center justify-center mr-2"
+          className="w-7 h-7 rounded-full items-center justify-center mr-2"
+          style={{ backgroundColor: `${appTheme.primary}33` }}
         >
-          <Ionicons name="add" size={16} color="#22c55e" />
+          <Ionicons name="add" size={16} color={appTheme.primary} />
         </TouchableOpacity>
         <TextInput
           ref={inputRef}
           value={newTaskText}
           onChangeText={setNewTaskText}
           placeholder="Add a new task..."
-          placeholderTextColor="#6b7280"
-          className="flex-1 text-white text-base"
+          placeholderTextColor={appTheme.textMuted}
+          className="flex-1 text-base"
+          style={{ color: appTheme.textPrimary }}
           onSubmitEditing={handleAddTask}
           returnKeyType="done"
         />
@@ -175,11 +204,16 @@ export default function AllTasksView() {
           <Ionicons
             name={showCompleted ? "chevron-down" : "chevron-forward"}
             size={16}
-            color="#6b7280"
+            color={appTheme.textMuted}
           />
-          <Text className="text-textMuted font-medium ml-2">
+          <Text
+            className="font-medium ml-2"
+            style={{ color: appTheme.textMuted }}
+          >
             Completed{" "}
-            <Text className="text-textMuted/60">{completedTasks.length}</Text>
+            <Text style={{ color: `${appTheme.textMuted}99` }}>
+              {completedTasks.length}
+            </Text>
           </Text>
         </TouchableOpacity>
       )}
@@ -193,6 +227,6 @@ export default function AllTasksView() {
             onDelete={() => taskRepository.deleteTask(task.id)}
           />
         ))}
-    </View>
+    </ScrollView>
   );
 }

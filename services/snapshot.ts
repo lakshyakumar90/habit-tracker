@@ -11,6 +11,7 @@ const syncedSettingKeys: (keyof AppSettings)[] = [
   "soundEnabled",
   "confettiEnabled",
   "tickSoundEnabled",
+  "tickSound",
   "celebrationSound",
   "celebrationVolume",
 ];

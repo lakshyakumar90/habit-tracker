@@ -1,17 +1,13 @@
 import {
-  format,
-  startOfWeek,
-  addDays,
-  isToday,
-  isSameDay,
-  subDays,
-  subMonths,
-  eachDayOfInterval,
-  startOfMonth,
-  endOfMonth,
-  getDay,
-  isBefore,
-  startOfDay,
+    eachDayOfInterval,
+    format,
+    getDay,
+    isBefore,
+    isSameDay,
+    isToday,
+    startOfDay,
+    subDays,
+    subMonths
 } from "date-fns";
 
 export const formatDate = (date: Date): string => format(date, "yyyy-MM-dd");
@@ -21,8 +17,7 @@ export const formatDisplay = (date: Date): string => format(date, "do MMM");
 export const getDayName = (date: Date): string => format(date, "EEE");
 
 export const getWeekDates = (date: Date): Date[] => {
-  const start = startOfWeek(date, { weekStartsOn: 0 });
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  return Array.from({ length: 7 }, (_, i) => subDays(date, 6 - i));
 };
 
 export const getTodayString = (): string => formatDate(new Date());
@@ -52,4 +47,5 @@ export const isDateBefore = (d1: Date, d2: Date): boolean =>
 
 export const isDateToday = (date: Date): boolean => isToday(date);
 
-export { format, isToday, getDay, isSameDay };
+export { format, getDay, isSameDay, isToday };
+

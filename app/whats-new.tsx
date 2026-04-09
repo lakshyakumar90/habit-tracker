@@ -1,3 +1,5 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
@@ -17,6 +19,9 @@ const RELEASE_NOTES = [
 ];
 
 export default function WhatsNewScreen() {
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
+
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top", "left", "right"]}>
       <View className="flex-row items-center px-4 py-3">
@@ -33,9 +38,16 @@ export default function WhatsNewScreen() {
         {RELEASE_NOTES.map((release) => (
           <View
             key={release.version}
-            className="bg-card rounded-2xl border border-cardBorder p-4 mb-4"
+            className="rounded-2xl border p-4 mb-4"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
           >
-            <Text className="text-primary font-bold text-base mb-2">
+            <Text
+              className="font-bold text-base mb-2"
+              style={{ color: appTheme.primary }}
+            >
               Version {release.version}
             </Text>
             {release.notes.map((note) => (
@@ -43,7 +55,7 @@ export default function WhatsNewScreen() {
                 <Ionicons
                   name="checkmark-circle"
                   size={16}
-                  color="#22c55e"
+                  color={appTheme.primary}
                   style={{ marginTop: 2 }}
                 />
                 <Text className="text-white ml-2 flex-1">{note}</Text>

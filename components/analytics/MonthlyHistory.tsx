@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
-import { View, Text } from "react-native";
-import { useHabitStore } from "@/store/useHabitStore";
-import { getLast5Months, formatDate } from "@/utils/dates";
-import { eachDayOfInterval, startOfMonth, endOfMonth, format } from "date-fns";
 import GlowCard from "@/components/common/GlowCard";
+import { getAppTheme } from "@/constants/appThemes";
+import { useHabitStore } from "@/store/useHabitStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { formatDate, getLast5Months } from "@/utils/dates";
+import { eachDayOfInterval, endOfMonth, startOfMonth } from "date-fns";
+import React, { useMemo } from "react";
+import { Text, View } from "react-native";
 
 interface MonthlyHistoryProps {
   habitId: string;
@@ -11,6 +13,8 @@ interface MonthlyHistoryProps {
 
 export default function MonthlyHistory({ habitId }: MonthlyHistoryProps) {
   const { logs } = useHabitStore();
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
 
   const months = useMemo(() => {
     const last5 = getLast5Months();
@@ -36,8 +40,8 @@ export default function MonthlyHistory({ habitId }: MonthlyHistoryProps) {
   const BAR_HEIGHT = 80;
 
   return (
-    <GlowCard className="mb-6">
-      <View className="flex-row items-center justify-between mb-4">
+    <GlowCard className="mb-8">
+      <View className="flex-row items-center justify-between mb-6">
         <View className="flex-row items-center">
           <Text className="text-lg mr-2">📅</Text>
           <Text className="text-white font-bold text-base">
@@ -56,9 +60,10 @@ export default function MonthlyHistory({ habitId }: MonthlyHistoryProps) {
           return (
             <View key={i} className="items-center flex-1">
               <Text
-                className={`text-[10px] mb-1 font-medium ${
-                  isLatest ? "text-primary" : "text-textMuted"
-                }`}
+                className="text-[10px] mb-1 font-medium"
+                style={{
+                  color: isLatest ? appTheme.primary : appTheme.textMuted,
+                }}
               >
                 {m.percentage}%
               </Text>
@@ -66,15 +71,18 @@ export default function MonthlyHistory({ habitId }: MonthlyHistoryProps) {
                 style={{
                   height,
                   width: "60%",
-                  backgroundColor: isLatest ? "#22c55e" : "#2a3a30",
+                  backgroundColor: isLatest
+                    ? appTheme.primary
+                    : appTheme.surface,
                   borderRadius: 4,
                   minHeight: 4,
                 }}
               />
               <Text
-                className={`text-xs mt-2 font-medium ${
-                  isLatest ? "text-primary" : "text-textMuted"
-                }`}
+                className="text-xs mt-2 font-medium"
+                style={{
+                  color: isLatest ? appTheme.primary : appTheme.textMuted,
+                }}
               >
                 {m.month}
               </Text>

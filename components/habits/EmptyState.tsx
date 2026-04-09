@@ -1,7 +1,9 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { ViewMode } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
@@ -32,15 +34,19 @@ const EMPTY_CONFIG: Record<
 };
 
 export default function EmptyState({ mode }: EmptyStateProps) {
+  const router = useRouter();
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
   const config = EMPTY_CONFIG[mode] || EMPTY_CONFIG.tick;
 
   return (
     <View className="flex-1 items-center justify-center px-8 mt-20">
       {/* Icon Container with Glow */}
       <View
-        className="w-36 h-36 rounded-[40px] items-center justify-center mb-10 border border-primary relative"
+        className="w-36 h-36 rounded-[40px] items-center justify-center mb-10 border relative"
         style={{
-          shadowColor: "#22c55e",
+          borderColor: appTheme.primary,
+          shadowColor: appTheme.primary,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.3,
           shadowRadius: 25,
@@ -49,31 +55,66 @@ export default function EmptyState({ mode }: EmptyStateProps) {
       >
         {mode === "time" ? (
           <View className="items-center">
-            <View className="w-16 h-16 rounded-[22px] bg-[#1a2e22] items-center justify-center">
-              <Ionicons name="timer-outline" size={32} color="#4ade80" />
+            <View
+              className="w-16 h-16 rounded-[22px] items-center justify-center"
+              style={{ backgroundColor: `${appTheme.primaryLight}20` }}
+            >
+              <Ionicons
+                name="timer-outline"
+                size={32}
+                color={appTheme.primaryLight}
+              />
             </View>
             {/* Dots */}
             <View className="flex-row items-center justify-center gap-1.5 mt-4">
-              <View className="w-2 h-2 rounded-full bg-[#4ade80]" />
-              <View className="w-2 h-2 rounded-full bg-[#18231d] border border-cardBorder" />
-              <View className="w-2 h-2 rounded-full bg-[#18231d] border border-cardBorder" />
-              <View className="w-2 h-2 rounded-full bg-[#18231d] border border-cardBorder" />
+              <View
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: appTheme.primaryLight }}
+              />
+              <View
+                className="w-2 h-2 rounded-full border"
+                style={{
+                  backgroundColor: appTheme.surface,
+                  borderColor: appTheme.cardBorder,
+                }}
+              />
+              <View
+                className="w-2 h-2 rounded-full border"
+                style={{
+                  backgroundColor: appTheme.surface,
+                  borderColor: appTheme.cardBorder,
+                }}
+              />
+              <View
+                className="w-2 h-2 rounded-full border"
+                style={{
+                  backgroundColor: appTheme.surface,
+                  borderColor: appTheme.cardBorder,
+                }}
+              />
             </View>
             {/* Play border bubble */}
-            <View className="absolute -top-6 -right-6 w-9 h-9 rounded-full border border-[#4ade80] bg-[#0a0f0d] items-center justify-center">
+            <View
+              className="absolute -top-6 -right-6 w-9 h-9 rounded-full border items-center justify-center"
+              style={{
+                borderColor: appTheme.primaryLight,
+                backgroundColor: appTheme.background,
+              }}
+            >
               <Ionicons
                 name="play"
                 size={16}
-                color="#4ade80"
+                color={appTheme.primaryLight}
                 style={{ marginLeft: 2 }}
               />
             </View>
             {/* Plus Bubble */}
             <TouchableOpacity
               onPress={() => router.push("/add-habit")}
-              className="absolute -bottom-5 -right-5 w-12 h-12 rounded-full bg-[#4ade80] items-center justify-center"
+              className="absolute -bottom-5 -right-5 w-12 h-12 rounded-full items-center justify-center"
               style={{
-                shadowColor: "#4ade80",
+                backgroundColor: appTheme.primaryLight,
+                shadowColor: appTheme.primaryLight,
                 shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: 0.8,
                 shadowRadius: 15,
@@ -83,12 +124,25 @@ export default function EmptyState({ mode }: EmptyStateProps) {
               <Ionicons name="add" size={28} color="black" />
             </TouchableOpacity>
             {/* Outer small bubbles */}
-            <View className="absolute top-4 -left-4 w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-            <View className="absolute bottom-4 -left-4 w-1.5 h-1.5 rounded-full bg-[#263529]" />
+            <View
+              className="absolute top-4 -left-4 w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: appTheme.primaryLight }}
+            />
+            <View
+              className="absolute bottom-4 -left-4 w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: appTheme.surface }}
+            />
           </View>
         ) : (
-          <View className="w-16 h-16 rounded-3xl bg-surface items-center justify-center">
-            <Ionicons name={config.icon as any} size={32} color="#22c55e" />
+          <View
+            className="w-16 h-16 rounded-3xl items-center justify-center"
+            style={{ backgroundColor: appTheme.surface }}
+          >
+            <Ionicons
+              name={config.icon as any}
+              size={32}
+              color={appTheme.primary}
+            />
           </View>
         )}
       </View>
@@ -107,12 +161,12 @@ export default function EmptyState({ mode }: EmptyStateProps) {
         className="w-full rounded-2xl overflow-hidden"
       >
         <LinearGradient
-          colors={["#4ade80", "#22c55e"]}
+          colors={[appTheme.primaryLight, appTheme.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           className="flex-row items-center justify-center py-4"
           style={{
-            shadowColor: "#22c55e",
+            shadowColor: appTheme.primary,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.3,
             shadowRadius: 10,

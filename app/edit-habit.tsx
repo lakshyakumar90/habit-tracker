@@ -6,31 +6,35 @@ import ReminderTimePickerModal from "@/components/habits/ReminderTimePickerModal
 import { DEFAULT_HABIT_COLOR } from "@/constants/Colors";
 import { getAppTheme } from "@/constants/appThemes";
 import { habitRepository } from "@/services/habitRepository";
+import { useHabitStore } from "@/store/useHabitStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { FrequencyType, HabitType, Reminder } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
+    SafeAreaView,
+    useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-export default function AddHabitScreen() {
+export default function EditHabitScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const habits = useHabitStore((state) => state.habits);
   const settings = useSettingsStore();
   const appTheme = getAppTheme(settings.theme);
   const insets = useSafeAreaInsets();
+
   const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_HABIT_COLOR);
   const [icon, setIcon] = useState("paw");
@@ -45,6 +49,26 @@ export default function AddHabitScreen() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [pickerReminderId, setPickerReminderId] = useState<string | null>(null);
   const [pickerDraftDate, setPickerDraftDate] = useState(new Date());
+
+  useEffect(() => {
+    if (id) {
+      const existingHabit = habits.find((h) => h.id === id);
+      if (existingHabit) {
+        setName(existingHabit.name);
+        setColor(existingHabit.color);
+        setIcon(existingHabit.icon);
+        setHabitType(existingHabit.type);
+        setFrequency(existingHabit.frequency || "daily");
+        setTargetCount(existingHabit.targetCount || 1);
+        setCompletionTargetEnabled(
+          existingHabit.completionTargetEnabled || false,
+        );
+        setSelectedDays(existingHabit.days || []);
+        setSelectedCategory(existingHabit.category || "");
+        setReminders(existingHabit.reminders || []);
+      }
+    }
+  }, [id, habits]);
 
   const addReminder = () => {
     const reminderId = `${Date.now()}-${reminders.length}`;
@@ -120,9 +144,9 @@ export default function AddHabitScreen() {
   };
 
   const handleSave = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !id) return;
 
-    habitRepository.addHabit({
+    habitRepository.updateHabit(id, {
       name: name.trim(),
       type: habitType,
       color,
@@ -153,7 +177,7 @@ export default function AddHabitScreen() {
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="close" size={28} color="white" />
           </TouchableOpacity>
-          <Text className="text-white text-2xl font-bold ml-4">New Habit</Text>
+          <Text className="text-white text-2xl font-bold ml-4">Edit Habit</Text>
         </View>
 
         <ScrollView
@@ -185,7 +209,7 @@ export default function AddHabitScreen() {
                 placeholder="What habit do you want to build?"
                 placeholderTextColor="#6b7280"
                 className="text-white text-base"
-                autoFocus
+                autoFocus={false}
               />
             </View>
           </View>
@@ -445,7 +469,7 @@ export default function AddHabitScreen() {
               {/* Categories */}
               <TouchableOpacity
                 onPress={() => setShowCategories(true)}
-                className="rounded-2xl border border-cardBorder p-4 flex-row items-center"
+                className="rounded-2xl border p-4 flex-row items-center"
                 style={{
                   backgroundColor: appTheme.surface,
                   borderColor: appTheme.cardBorder,
@@ -500,7 +524,7 @@ export default function AddHabitScreen() {
                   name.trim() ? "text-black" : "text-textMuted"
                 }`}
               >
-                Save
+                Save Changes
               </Text>
             </LinearGradient>
           </TouchableOpacity>

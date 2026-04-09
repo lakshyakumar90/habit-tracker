@@ -1,8 +1,10 @@
-import React, { useMemo } from "react";
-import { View, Text } from "react-native";
-import { useHabitStore } from "@/store/useHabitStore";
-import { getLast30Days, formatDate } from "@/utils/dates";
 import GlowCard from "@/components/common/GlowCard";
+import { getAppTheme } from "@/constants/appThemes";
+import { useHabitStore } from "@/store/useHabitStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { formatDate, getLast30Days } from "@/utils/dates";
+import React, { useMemo } from "react";
+import { Text, View } from "react-native";
 
 interface TrendChartProps {
   habitId: string;
@@ -11,6 +13,8 @@ interface TrendChartProps {
 
 export default function TrendChart({ habitId, color }: TrendChartProps) {
   const { logs } = useHabitStore();
+  const theme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(theme);
 
   const data = useMemo(() => {
     const days = getLast30Days();
@@ -39,14 +43,32 @@ export default function TrendChart({ habitId, color }: TrendChartProps) {
   }));
 
   return (
-    <GlowCard glowColor={color} className="mb-6">
-      <View className="flex-row items-center justify-between mb-4">
+    <GlowCard glowColor={color} className="mb-8">
+      <View className="flex-row items-center justify-between mb-6">
         <View className="flex-row items-center">
-          <Text className="text-primary text-lg mr-2">📈</Text>
-          <Text className="text-white font-bold text-base">TREND</Text>
+          <Text className="text-lg mr-2" style={{ color: appTheme.primary }}>
+            📈
+          </Text>
+          <Text
+            className="font-bold text-base"
+            style={{ color: appTheme.textPrimary }}
+          >
+            TREND
+          </Text>
         </View>
-        <View className="bg-surface px-3 py-1 rounded-full border border-cardBorder">
-          <Text className="text-primary text-xs font-medium">30 days</Text>
+        <View
+          className="px-3 py-1 rounded-full border"
+          style={{
+            backgroundColor: appTheme.surface,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
+          <Text
+            className="text-xs font-medium"
+            style={{ color: appTheme.primary }}
+          >
+            30 days
+          </Text>
         </View>
       </View>
 

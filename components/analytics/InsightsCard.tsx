@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
-import { View, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import GlowCard from "@/components/common/GlowCard";
-import { StreakResult } from "@/utils/streak";
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useHabitStore } from "@/store/useHabitStore";
+import { StreakResult } from "@/utils/streak";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useMemo } from "react";
+import { Text, View } from "react-native";
 
 interface InsightsCardProps {
   streak: StreakResult;
@@ -12,9 +14,16 @@ interface InsightsCardProps {
 
 export default function InsightsCard({ streak, habitId }: InsightsCardProps) {
   const { logs } = useHabitStore();
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
 
   const insights = useMemo(() => {
-    const items: { icon: string; color: string; title: string; subtitle: string }[] = [];
+    const items: {
+      icon: string;
+      color: string;
+      title: string;
+      subtitle: string;
+    }[] = [];
 
     // Streak insight
     if (streak.current > 0) {
@@ -58,20 +67,21 @@ export default function InsightsCard({ streak, habitId }: InsightsCardProps) {
     if (bestPct > 0) {
       items.push({
         icon: "calendar",
-        color: "#22c55e",
+        color: appTheme.primary,
         title: `${fullDays[bestDayIdx]}s are your day`,
         subtitle: `${Math.round(bestPct)}% completion rate on ${fullDays[bestDayIdx]}s.`,
       });
     }
 
     // Overall progress
-    const totalDays = Object.keys(logs).filter(
-      (k) => k.startsWith(`${habitId}_`)
+    const totalDays = Object.keys(logs).filter((k) =>
+      k.startsWith(`${habitId}_`),
     ).length;
     const completedDays = Object.entries(logs).filter(
-      ([k, v]) => k.startsWith(`${habitId}_`) && v > 0
+      ([k, v]) => k.startsWith(`${habitId}_`) && v > 0,
     ).length;
-    const overallPct = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+    const overallPct =
+      totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
 
     if (totalDays > 0) {
       items.push({
@@ -85,21 +95,25 @@ export default function InsightsCard({ streak, habitId }: InsightsCardProps) {
     }
 
     return items;
-  }, [streak, habitId, logs]);
+  }, [streak, habitId, logs, appTheme.primary]);
 
   if (insights.length === 0) return null;
 
   return (
-    <GlowCard className="mb-6">
-      <View className="flex-row items-center mb-4">
+    <GlowCard className="mb-8">
+      <View className="flex-row items-center mb-6">
         <Text className="text-lg mr-2">💡</Text>
         <Text className="text-white font-bold text-base">INSIGHTS</Text>
       </View>
 
-      <View className="h-px bg-cardBorder mb-4" />
+      <View className="h-px bg-cardBorder mb-6" />
 
       {insights.map((insight, i) => (
-        <View key={i} className="flex-row items-start mb-4 last:mb-0">
+        <View 
+          key={i} 
+          className="flex-row items-start mb-4 last:mb-0"
+          style={i < insights.length - 1 ? { marginBottom: 16 } : {}}
+        >
           <View
             className="w-10 h-10 rounded-xl items-center justify-center mr-3"
             style={{ backgroundColor: `${insight.color}20` }}
@@ -112,7 +126,7 @@ export default function InsightsCard({ streak, habitId }: InsightsCardProps) {
           </View>
           <View className="flex-1">
             <Text className="text-white font-semibold">{insight.title}</Text>
-            <Text className="text-textMuted text-sm mt-0.5">
+            <Text className="text-textMuted text-sm mt-1">
               {insight.subtitle}
             </Text>
           </View>

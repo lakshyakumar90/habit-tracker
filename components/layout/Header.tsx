@@ -1,13 +1,14 @@
-import { useSettingsStore } from "@/store/useSettingsStore";
 import { THEME_OPTIONS, getAppTheme } from "@/constants/appThemes";
 import { settingsRepository } from "@/services/settingsRepository";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
 export default function Header() {
+  const router = useRouter();
   const today = new Date();
   const { theme, cloudSyncEnabled, cloudSyncStatus } = useSettingsStore();
   const appTheme = getAppTheme(theme);
@@ -19,15 +20,15 @@ export default function Header() {
   };
 
   return (
-    <View className="px-4 py-3">
+    <View className="px-6 pt-6 pb-4">
       <View className="flex-row items-center justify-between">
         <Text
-          className="text-xl font-bold"
+          className="text-2xl font-bold"
           style={{ color: appTheme.textPrimary }}
         >
           Today, {format(today, "do MMM")}
         </Text>
-        <View className="flex-row items-center gap-1">
+        <View className="flex-row items-center gap-2">
           <TouchableOpacity className="relative p-2" onPress={handleCycleTheme}>
             <Ionicons name="color-wand" size={24} color={appTheme.primary} />
           </TouchableOpacity>

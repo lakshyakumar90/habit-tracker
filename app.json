@@ -1,21 +1,30 @@
 {
-  "expo": {
-    "name": "habit-tracker",
-    "slug": "habit-tracker",
-    "version": "1.0.0",
-    "scheme": "habit-tracker",
-    "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android"],
-    "newArchEnabled": true,
-    "plugins": ["expo-router", "expo-notifications"],
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "c887dab9-4209-4d58-b25d-a844e22c1b02"
-      }
+  "_comment": "Store listing metadata reference. Expo runtime config now lives in app.config.ts",
+  "store": {
+    "appName": "Habit Tracker - Daily Routines",
+    "shortDescription": "Build better habits with streaks, reminders & insights.",
+    "fullDescription": "Habit Tracker helps you build and maintain positive daily routines.\n\nCreate unlimited habits with custom colors and icons\nTrack streaks, completion rates, and weekly progress\nSmart reminders that keep you on track\nCelebration effects when you hit milestones\nOptional cloud sync with Google sign-in\nHome screen widgets for quick tracking\nBeautiful dark themes to choose from\nPrivacy-first: your data stays on your device by default\n\nStart your journey to better habits today!",
+    "keywords": [
+      "habit tracker",
+      "daily routine",
+      "streak counter",
+      "goal tracker",
+      "self improvement",
+      "productivity",
+      "habit builder",
+      "daily habits",
+      "routine planner",
+      "wellness"
+    ],
+    "category": {
+      "ios": "Health & Fitness",
+      "android": "Health & Fitness"
     },
-    "android": {
-      "package": "com.lakshya.kumar.habittracker"
-    }
+    "contentRating": "Everyone",
+    "privacyPolicyUrl": "https://habittracker.app/privacy-policy",
+    "termsUrl": "https://habittracker.app/terms",
+    "supportUrl": "mailto:lakshyakumar90+habittracker@gmail.com",
+    "developerName": "Lakshya Kumar",
+    "copyright": "Copyright 2026 Lakshya Kumar"
   }
 }

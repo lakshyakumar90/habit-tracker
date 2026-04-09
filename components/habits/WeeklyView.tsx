@@ -1,8 +1,9 @@
+import { getAppTheme } from "@/constants/appThemes";
 import { useCelebrationStore } from "@/store/useCelebrationStore";
 import { useHabitStore } from "@/store/useHabitStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { formatDate, getWeekDates } from "@/utils/dates";
-import { playAppSound } from "@/utils/sound";
+import { playAppSound, playTickSound } from "@/utils/sound";
 import { Ionicons } from "@expo/vector-icons";
 import { isBefore, isToday, startOfDay } from "date-fns";
 import React from "react";
@@ -17,6 +18,7 @@ export default function WeeklyView({ habitId, color }: WeeklyViewProps) {
   const { toggleHabit, isHabitCompletedOnDate, getWeekProgress } =
     useHabitStore();
   const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
   const triggerCelebration = useCelebrationStore((state) => state.triggerBurst);
   const weekDates = getWeekDates(new Date());
   const DAY_LABELS = ["M", "Tu", "W", "Th", "F", "Sa", "Su"];
@@ -82,8 +84,8 @@ export default function WeeklyView({ habitId, color }: WeeklyViewProps) {
                   settings.soundEnabled &&
                   settings.tickSoundEnabled
                 ) {
-                  playAppSound(
-                    "pop",
+                  playTickSound(
+                    settings.tickSound,
                     Math.max(0.1, settings.celebrationVolume * 0.7),
                   );
                 }
@@ -111,14 +113,12 @@ export default function WeeklyView({ habitId, color }: WeeklyViewProps) {
             >
               <View
                 className={`w-10 h-10 rounded-lg items-center justify-center ${
-                  isCompleted
-                    ? ""
-                    : isTodayDate
-                      ? "border-2 border-white"
-                      : "bg-surface"
+                  !isCompleted && isTodayDate ? "border-2 border-white" : ""
                 }`}
                 style={{
-                  ...(isCompleted ? { backgroundColor: color } : {}),
+                  ...(isCompleted
+                    ? { backgroundColor: color }
+                    : { backgroundColor: appTheme.surface }),
                   ...(isFuture ? { opacity: 0.3 } : {}),
                 }}
               >

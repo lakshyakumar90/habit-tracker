@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { HABIT_COLORS } from "@/constants/Colors";
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 interface ColorPickerProps {
   selectedColor: string;
@@ -12,6 +14,8 @@ export default function ColorPicker({
   selectedColor,
   onSelect,
 }: ColorPickerProps) {
+  const theme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(theme);
   const [showAll, setShowAll] = useState(false);
   const displayColors = showAll ? HABIT_COLORS : HABIT_COLORS.slice(0, 6);
 
@@ -21,12 +25,23 @@ export default function ColorPicker({
         <Ionicons name="color-palette-outline" size={18} color="#9ca3af" />
         <Text className="text-white font-medium text-base ml-2">Color</Text>
       </View>
-      <View className="bg-surface rounded-2xl p-4 border border-cardBorder">
-        <ScrollView horizontal={!showAll} showsHorizontalScrollIndicator={false}>
-          <View className={showAll ? "flex-row flex-wrap gap-3" : "flex-row gap-3"}>
-            {displayColors.map((color) => (
+      <View
+        className="rounded-2xl p-4 border"
+        style={{
+          backgroundColor: appTheme.surface,
+          borderColor: appTheme.cardBorder,
+        }}
+      >
+        <ScrollView
+          horizontal={!showAll}
+          showsHorizontalScrollIndicator={false}
+        >
+          <View
+            className={showAll ? "flex-row flex-wrap gap-3" : "flex-row gap-3"}
+          >
+            {displayColors.map((color, index) => (
               <TouchableOpacity
-                key={color}
+                key={`${color}-${index}`}
                 onPress={() => onSelect(color)}
                 className={`w-11 h-11 rounded-full items-center justify-center ${
                   selectedColor === color ? "border-2 border-white" : ""
@@ -42,10 +57,19 @@ export default function ColorPicker({
             {!showAll && (
               <TouchableOpacity
                 onPress={() => setShowAll(true)}
-                className="w-11 h-11 rounded-full items-center justify-center bg-card border border-cardBorder"
+                className="w-11 h-11 rounded-full items-center justify-center border"
+                style={{
+                  backgroundColor: appTheme.card,
+                  borderColor: appTheme.cardBorder,
+                }}
                 activeOpacity={0.7}
               >
-                <Text className="text-primary text-[10px] font-bold">+30</Text>
+                <Text
+                  className="text-[10px] font-bold"
+                  style={{ color: appTheme.primary }}
+                >
+                  +30
+                </Text>
               </TouchableOpacity>
             )}
           </View>

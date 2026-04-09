@@ -86,6 +86,9 @@ export default defineSchema({
     soundEnabled: v.boolean(),
     confettiEnabled: v.boolean(),
     tickSoundEnabled: v.boolean(),
+    tickSound: v.optional(
+      v.union(v.literal("tick"), v.literal("click"), v.literal("wood")),
+    ),
     celebrationSound: v.union(
       v.literal("sparkle"),
       v.literal("chime"),

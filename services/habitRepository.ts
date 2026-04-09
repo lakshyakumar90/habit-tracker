@@ -5,6 +5,8 @@ export const habitRepository = {
   addHabit: (
     habit: Omit<Habit, "id" | "createdAt" | "updatedAt" | "archived">,
   ) => useHabitStore.getState().addHabit(habit),
+  updateHabit: (habitId: string, updates: Partial<Habit>) =>
+    useHabitStore.getState().updateHabit(habitId, updates),
   toggleHabit: (habitId: string, date: string) =>
     useHabitStore.getState().toggleHabit(habitId, date),
   setTimeValue: (habitId: string, date: string, minutes: number) =>

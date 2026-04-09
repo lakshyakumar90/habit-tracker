@@ -1,19 +1,16 @@
-import { useEffect } from "react";
-import { useQuery } from "convex/react";
 import { authClient } from "@/services/auth";
-import { syncFunctions } from "@/services/convexFunctions";
-import { applySnapshotToStores } from "@/services/snapshot";
-import { resumePendingCloudSyncEnable } from "@/services/syncRepository";
+import {
+  refreshCloudSnapshot,
+  resumePendingCloudSyncEnable,
+} from "@/services/syncRepository";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useEffect } from "react";
+import { AppState } from "react-native";
 
 export default function SyncBootstrap() {
   const cloudSyncEnabled = useSettingsStore((state) => state.cloudSyncEnabled);
   const session = authClient.useSession();
   const sessionId = session.data?.session?.id;
-  const snapshot = useQuery(
-    syncFunctions.getSnapshot,
-    cloudSyncEnabled ? {} : "skip",
-  );
 
   useEffect(() => {
     if (session.data?.user) {
@@ -22,8 +19,13 @@ export default function SyncBootstrap() {
         email: session.data.user.email,
         image: session.data.user.image ?? null,
       });
+      return;
     }
-  }, [session.data?.user]);
+
+    if (!cloudSyncEnabled) {
+      useSettingsStore.getState().setAuthUserSummary(undefined);
+    }
+  }, [cloudSyncEnabled, session.data?.user]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -31,10 +33,23 @@ export default function SyncBootstrap() {
   }, [sessionId]);
 
   useEffect(() => {
-    if (!cloudSyncEnabled || !snapshot) return;
-    applySnapshotToStores(snapshot);
-    useSettingsStore.getState().markSyncCompleted();
-  }, [cloudSyncEnabled, snapshot]);
+    if (!cloudSyncEnabled) return;
+    void refreshCloudSnapshot();
+  }, [cloudSyncEnabled, sessionId]);
+
+  useEffect(() => {
+    if (!cloudSyncEnabled) return;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        void refreshCloudSnapshot();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [cloudSyncEnabled]);
 
   return null;
 }

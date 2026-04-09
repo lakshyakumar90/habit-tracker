@@ -81,6 +81,7 @@ const getSnapshotForUser = async (ctx: any, userId: string) => {
           soundEnabled: settings.soundEnabled,
           confettiEnabled: settings.confettiEnabled,
           tickSoundEnabled: settings.tickSoundEnabled,
+          tickSound: settings.tickSound ?? "tick",
           celebrationSound: settings.celebrationSound,
           celebrationVolume: settings.celebrationVolume,
         }
@@ -227,6 +228,7 @@ export const enableSync = mutationGeneric({
       soundEnabled: true,
       confettiEnabled: true,
       tickSoundEnabled: true,
+      tickSound: "tick",
       celebrationSound: "sparkle",
       celebrationVolume: 0.7,
     };

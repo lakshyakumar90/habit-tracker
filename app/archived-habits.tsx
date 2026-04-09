@@ -1,5 +1,7 @@
+import { getAppTheme } from "@/constants/appThemes";
 import { habitRepository } from "@/services/habitRepository";
 import { useHabitStore } from "@/store/useHabitStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
@@ -8,6 +10,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ArchivedHabitsScreen() {
   const habits = useHabitStore((state) => state.habits);
+  const theme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(theme);
   const archivedHabits = React.useMemo(
     () => habits.filter((habit) => habit.archived),
     [habits],
@@ -25,20 +29,38 @@ export default function ArchivedHabitsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={["top", "left", "right"]}>
+    <SafeAreaView
+      className="flex-1"
+      edges={["top", "left", "right", "bottom"]}
+      style={{ backgroundColor: appTheme.background }}
+    >
       <View className="flex-row items-center px-4 py-3">
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={appTheme.textPrimary}
+          />
         </TouchableOpacity>
-        <Text className="text-white text-xl font-bold ml-4">
+        <Text
+          className="text-xl font-bold ml-4"
+          style={{ color: appTheme.textPrimary }}
+        >
           Archived Habits
         </Text>
       </View>
 
       {archivedHabits.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
-          <Ionicons name="archive-outline" size={36} color="#6b7280" />
-          <Text className="text-textMuted text-center mt-3">
+          <Ionicons
+            name="archive-outline"
+            size={36}
+            color={appTheme.textMuted}
+          />
+          <Text
+            className="text-center mt-3"
+            style={{ color: appTheme.textMuted }}
+          >
             You have no archived habits.
           </Text>
         </View>
@@ -50,7 +72,11 @@ export default function ArchivedHabitsScreen() {
           {archivedHabits.map((habit) => (
             <View
               key={habit.id}
-              className="bg-card rounded-2xl border border-cardBorder p-4 mb-3"
+              className="rounded-2xl border p-4 mb-3"
+              style={{
+                backgroundColor: appTheme.card,
+                borderColor: appTheme.cardBorder,
+              }}
             >
               <View className="flex-row items-center justify-between mb-3">
                 <View className="flex-row items-center flex-1 pr-3">
@@ -65,10 +91,16 @@ export default function ArchivedHabitsScreen() {
                     />
                   </View>
                   <View className="ml-3 flex-1">
-                    <Text className="text-white font-semibold">
+                    <Text
+                      className="font-semibold"
+                      style={{ color: appTheme.textPrimary }}
+                    >
                       {habit.name}
                     </Text>
-                    <Text className="text-textMuted text-xs capitalize mt-0.5">
+                    <Text
+                      className="text-xs capitalize mt-0.5"
+                      style={{ color: appTheme.textMuted }}
+                    >
                       {habit.type} • {habit.frequency}
                     </Text>
                   </View>
@@ -77,11 +109,20 @@ export default function ArchivedHabitsScreen() {
 
               <View className="flex-row gap-2">
                 <TouchableOpacity
-                  className="flex-1 rounded-xl py-2.5 bg-primary/20 border border-primary/40 items-center"
+                  className="flex-1 rounded-xl py-2.5 border items-center"
+                  style={{
+                    backgroundColor: `${appTheme.primary}33`,
+                    borderColor: `${appTheme.primary}66`,
+                  }}
                   activeOpacity={0.7}
                   onPress={() => habitRepository.unarchiveHabit(habit.id)}
                 >
-                  <Text className="text-primary font-semibold">Restore</Text>
+                  <Text
+                    className="font-semibold"
+                    style={{ color: appTheme.primary }}
+                  >
+                    Restore
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="flex-1 rounded-xl py-2.5 bg-red-500/10 border border-red-500/30 items-center"

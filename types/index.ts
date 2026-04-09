@@ -56,6 +56,7 @@ export interface AppSettings {
   soundEnabled: boolean;
   confettiEnabled: boolean;
   tickSoundEnabled: boolean;
+  tickSound: "tick" | "click" | "wood";
   celebrationSound: "sparkle" | "chime" | "pop";
   celebrationVolume: number;
   cloudSyncEnabled: boolean;

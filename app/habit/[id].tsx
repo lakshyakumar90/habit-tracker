@@ -1,29 +1,32 @@
-import React, { useMemo } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { habitRepository } from "@/services/habitRepository";
-import { useHabitStore } from "@/store/useHabitStore";
-import { calculateStreak } from "@/utils/streak";
 import HabitGrid from "@/components/habits/HabitGrid";
 import WeeklyView from "@/components/habits/WeeklyView";
+import { getAppTheme } from "@/constants/appThemes";
+import { habitRepository } from "@/services/habitRepository";
+import { useHabitStore } from "@/store/useHabitStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { calculateStreak } from "@/utils/streak";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useMemo } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { habits, logs } = useHabitStore();
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
 
   const habit = habits.find((h) => h.id === id);
 
   const streak = useMemo(() => {
-    if (!habit) return { current: 0, best: 0, totalCompletions: 0, streakHistory: [] };
-    return calculateStreak(logs, habit.id, habit.completionTargetEnabled ? habit.targetCount : 1);
+    if (!habit)
+      return { current: 0, best: 0, totalCompletions: 0, streakHistory: [] };
+    return calculateStreak(
+      logs,
+      habit.id,
+      habit.completionTargetEnabled ? habit.targetCount : 1,
+    );
   }, [habit, logs]);
 
   if (!habit) {
@@ -31,24 +34,30 @@ export default function HabitDetailScreen() {
       <SafeAreaView className="flex-1 bg-bg items-center justify-center">
         <Text className="text-white text-lg">Habit not found</Text>
         <TouchableOpacity onPress={() => router.back()} className="mt-4">
-          <Text className="text-primary font-bold">Go Back</Text>
+          <Text className="font-bold" style={{ color: appTheme.primary }}>
+            Go Back
+          </Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   const handleDelete = () => {
-    Alert.alert("Delete Habit", `Are you sure you want to delete "${habit.name}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          habitRepository.deleteHabit(habit.id);
-          router.back();
+    Alert.alert(
+      "Delete Habit",
+      `Are you sure you want to delete "${habit.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            habitRepository.deleteHabit(habit.id);
+            router.back();
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const handleArchive = () => {
@@ -75,10 +84,15 @@ export default function HabitDetailScreen() {
           {habit.name}
         </Text>
         <TouchableOpacity
-          onPress={() => router.push({ pathname: "/analytics", params: { habitId: habit.id } })}
+          onPress={() =>
+            router.push({
+              pathname: "/analytics",
+              params: { habitId: habit.id },
+            })
+          }
           hitSlop={12}
         >
-          <Ionicons name="stats-chart" size={22} color="#22c55e" />
+          <Ionicons name="stats-chart" size={22} color={appTheme.primary} />
         </TouchableOpacity>
       </View>
 
@@ -93,11 +107,7 @@ export default function HabitDetailScreen() {
             className="w-20 h-20 rounded-full items-center justify-center mb-3"
             style={{ backgroundColor: `${habit.color}20` }}
           >
-            <Ionicons
-              name={habit.icon as any}
-              size={36}
-              color={habit.color}
-            />
+            <Ionicons name={habit.icon as any} size={36} color={habit.color} />
           </View>
           <Text className="text-white text-2xl font-bold">{habit.name}</Text>
           <Text className="text-textMuted text-sm mt-1">
@@ -105,30 +115,60 @@ export default function HabitDetailScreen() {
             {habit.frequency === "daily" ? "Daily" : "Weekly"}
           </Text>
           {habit.category ? (
-            <View className="bg-surface px-3 py-1 rounded-full mt-2 border border-cardBorder">
-              <Text className="text-textSecondary text-xs">{habit.category}</Text>
+            <View
+              className="px-3 py-1 rounded-full mt-2 border"
+              style={{
+                backgroundColor: appTheme.surface,
+                borderColor: appTheme.cardBorder,
+              }}
+            >
+              <Text className="text-textSecondary text-xs">
+                {habit.category}
+              </Text>
             </View>
           ) : null}
         </View>
 
         {/* Stats Row */}
         <View className="flex-row gap-3 mb-6">
-          <View className="flex-1 bg-card rounded-2xl border border-cardBorder p-4 items-center">
+          <View
+            className="flex-1 rounded-2xl border p-4 items-center"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
+          >
             <Ionicons name="flame" size={24} color="#f59e0b" />
             <Text className="text-white text-2xl font-bold mt-1">
               {streak.current}
             </Text>
             <Text className="text-textMuted text-xs">Current Streak</Text>
           </View>
-          <View className="flex-1 bg-card rounded-2xl border border-cardBorder p-4 items-center">
+          <View
+            className="flex-1 rounded-2xl border p-4 items-center"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
+          >
             <Ionicons name="trophy" size={24} color="#eab308" />
             <Text className="text-white text-2xl font-bold mt-1">
               {streak.best}
             </Text>
             <Text className="text-textMuted text-xs">Best Streak</Text>
           </View>
-          <View className="flex-1 bg-card rounded-2xl border border-cardBorder p-4 items-center">
-            <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+          <View
+            className="flex-1 rounded-2xl border p-4 items-center"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={24}
+              color={appTheme.primary}
+            />
             <Text className="text-white text-2xl font-bold mt-1">
               {streak.totalCompletions}
             </Text>
@@ -137,13 +177,25 @@ export default function HabitDetailScreen() {
         </View>
 
         {/* Grid */}
-        <View className="bg-card rounded-2xl border border-cardBorder p-4 mb-6">
+        <View
+          className="rounded-2xl border p-4 mb-6"
+          style={{
+            backgroundColor: appTheme.card,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
           <Text className="text-white font-bold mb-3">Activity</Text>
           <HabitGrid habitId={habit.id} color={habit.color} months={5} />
         </View>
 
         {/* Weekly Progress */}
-        <View className="bg-card rounded-2xl border border-cardBorder p-4 mb-6">
+        <View
+          className="rounded-2xl border p-4 mb-6"
+          style={{
+            backgroundColor: appTheme.card,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
           <Text className="text-white font-bold mb-1">This Week</Text>
           <WeeklyView habitId={habit.id} color={habit.color} />
         </View>
@@ -152,12 +204,19 @@ export default function HabitDetailScreen() {
         <View className="gap-3">
           <TouchableOpacity
             onPress={() =>
-              router.push({ pathname: "/analytics", params: { habitId: habit.id } })
+              router.push({
+                pathname: "/analytics",
+                params: { habitId: habit.id },
+              })
             }
-            className="bg-card rounded-2xl border border-cardBorder p-4 flex-row items-center"
+            className="rounded-2xl border p-4 flex-row items-center"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
             activeOpacity={0.7}
           >
-            <Ionicons name="analytics" size={22} color="#22c55e" />
+            <Ionicons name="analytics" size={22} color={appTheme.primary} />
             <Text className="text-white font-medium ml-3 flex-1">
               View Analytics
             </Text>
@@ -166,7 +225,11 @@ export default function HabitDetailScreen() {
 
           <TouchableOpacity
             onPress={handleArchive}
-            className="bg-card rounded-2xl border border-cardBorder p-4 flex-row items-center"
+            className="rounded-2xl border p-4 flex-row items-center"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
             activeOpacity={0.7}
           >
             <Ionicons name="archive" size={22} color="#f59e0b" />
@@ -178,7 +241,8 @@ export default function HabitDetailScreen() {
 
           <TouchableOpacity
             onPress={handleDelete}
-            className="bg-card rounded-2xl border border-red-500/20 p-4 flex-row items-center"
+            className="rounded-2xl border border-red-500/20 p-4 flex-row items-center"
+            style={{ backgroundColor: appTheme.card }}
             activeOpacity={0.7}
           >
             <Ionicons name="trash" size={22} color="#ef4444" />

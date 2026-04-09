@@ -1,3 +1,5 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import React from "react";
 import { TouchableOpacity } from "react-native";
 import Animated, {
@@ -14,8 +16,11 @@ export default function CustomSwitch({
   value,
   onValueChange,
 }: CustomSwitchProps) {
+  const theme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(theme);
+
   const trackStyle = useAnimatedStyle(() => ({
-    backgroundColor: withTiming(value ? "#22c55e" : "#374151", {
+    backgroundColor: withTiming(value ? appTheme.primary : "#374151", {
       duration: 200,
     }),
   }));

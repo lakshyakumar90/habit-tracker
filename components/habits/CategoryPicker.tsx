@@ -1,15 +1,17 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { DEFAULT_CATEGORIES } from "@/constants/categories";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Pressable,
+    Modal,
+    Pressable,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { DEFAULT_CATEGORIES } from "@/constants/categories";
-import { LinearGradient } from "expo-linear-gradient";
 
 interface CategoryPickerProps {
   selectedCategory: string;
@@ -22,6 +24,8 @@ export default function CategoryPicker({
   onSelect,
   onClose,
 }: CategoryPickerProps) {
+  const settings = useSettingsStore();
+  const appTheme = getAppTheme(settings.theme);
   const [customName, setCustomName] = useState("");
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
 
@@ -34,18 +38,18 @@ export default function CategoryPicker({
 
   return (
     <Modal visible animationType="slide" transparent>
-      <Pressable
-        className="flex-1 bg-black/50"
-        onPress={onClose}
-      />
+      <Pressable className="flex-1 bg-black/50" onPress={onClose} />
       <View className="bg-bg rounded-t-3xl px-4 pb-8 pt-4 border-t border-cardBorder">
         {/* Handle */}
         <View className="w-10 h-1 bg-textMuted rounded-full self-center mb-4" />
 
         {/* Header */}
         <View className="flex-row items-center mb-4">
-          <View className="w-10 h-10 rounded-xl bg-primary/10 items-center justify-center mr-3">
-            <Ionicons name="folder-open" size={20} color="#22c55e" />
+          <View
+            className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+            style={{ backgroundColor: `${appTheme.primary}1A` }}
+          >
+            <Ionicons name="folder-open" size={20} color={appTheme.primary} />
           </View>
           <View className="flex-1">
             <Text className="text-white font-bold text-lg">Categories</Text>
@@ -56,7 +60,10 @@ export default function CategoryPicker({
         </View>
 
         {/* Green accent line */}
-        <View className="w-1 h-4 bg-primary rounded-full ml-1 mb-2" />
+        <View
+          className="w-1 h-4 rounded-full ml-1 mb-2"
+          style={{ backgroundColor: appTheme.primary }}
+        />
 
         {/* Common Categories */}
         <Text className="text-textMuted font-bold text-xs mb-3 tracking-wider">
@@ -70,22 +77,29 @@ export default function CategoryPicker({
               <TouchableOpacity
                 key={cat.name}
                 onPress={() => onSelect(cat.name)}
-                className={`flex-row items-center px-4 py-2.5 rounded-xl border ${
-                  isActive
-                    ? "bg-primary/10 border-primary"
-                    : "bg-surface border-cardBorder"
-                }`}
+                className="flex-row items-center px-4 py-2.5 rounded-xl border"
+                style={{
+                  backgroundColor: isActive
+                    ? `${appTheme.primary}1A`
+                    : appTheme.surface,
+                  borderColor: isActive
+                    ? appTheme.primary
+                    : appTheme.cardBorder,
+                }}
                 activeOpacity={0.7}
               >
                 <Ionicons
                   name={cat.icon as any}
                   size={16}
-                  color={isActive ? "#22c55e" : "#9ca3af"}
+                  color={isActive ? appTheme.primary : "#9ca3af"}
                 />
                 <Text
-                  className={`ml-2 font-medium ${
-                    isActive ? "text-white" : "text-textSecondary"
-                  }`}
+                  className="ml-2 font-medium"
+                  style={{
+                    color: isActive
+                      ? appTheme.textPrimary
+                      : appTheme.textSecondary,
+                  }}
                 >
                   {cat.name}
                 </Text>
@@ -99,24 +113,38 @@ export default function CategoryPicker({
           CUSTOM CATEGORIES
         </Text>
 
-        <View className="flex-row items-center bg-surface rounded-2xl border border-cardBorder px-3 py-2 mb-2">
-          <TouchableOpacity className="w-10 h-10 rounded-xl bg-primary/10 items-center justify-center mr-3">
-            <Ionicons name="star" size={18} color="#22c55e" />
+        <View
+          className="flex-row items-center rounded-2xl border px-3 py-2 mb-2"
+          style={{
+            backgroundColor: appTheme.surface,
+            borderColor: appTheme.cardBorder,
+          }}
+        >
+          <TouchableOpacity
+            className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+            style={{ backgroundColor: `${appTheme.primary}1A` }}
+          >
+            <Ionicons name="star" size={18} color={appTheme.primary} />
           </TouchableOpacity>
           <TextInput
             value={customName}
             onChangeText={setCustomName}
             placeholder="New category name..."
-            placeholderTextColor="#6b7280"
-            className="flex-1 text-white text-base"
+            placeholderTextColor={appTheme.textMuted}
+            className="flex-1 text-base"
+            style={{ color: appTheme.textPrimary }}
             onSubmitEditing={addCustomCategory}
           />
           <TouchableOpacity
             onPress={addCustomCategory}
-            className="w-10 h-10 rounded-xl bg-card items-center justify-center border border-cardBorder"
+            className="w-10 h-10 rounded-xl items-center justify-center border"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
             activeOpacity={0.7}
           >
-            <Ionicons name="add" size={20} color="#22c55e" />
+            <Ionicons name="add" size={20} color={appTheme.primary} />
           </TouchableOpacity>
         </View>
 
@@ -131,7 +159,7 @@ export default function CategoryPicker({
           className="rounded-2xl overflow-hidden"
         >
           <LinearGradient
-            colors={["#4ade80", "#22c55e"]}
+            colors={[appTheme.primaryLight, appTheme.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             className="py-4 items-center justify-center rounded-2xl"

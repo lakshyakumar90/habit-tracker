@@ -1,3 +1,5 @@
+import { getAppTheme } from "@/constants/appThemes";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
@@ -24,6 +26,9 @@ const STEPS = [
 ];
 
 export default function AppIntroScreen() {
+  const theme = useSettingsStore((state) => state.theme);
+  const appTheme = getAppTheme(theme);
+
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top", "left", "right"]}>
       <View className="flex-row items-center px-4 py-3">
@@ -40,9 +45,16 @@ export default function AppIntroScreen() {
         {STEPS.map((step, index) => (
           <View
             key={step.title}
-            className="bg-card rounded-2xl border border-cardBorder p-4 mb-3"
+            className="rounded-2xl border p-4 mb-3"
+            style={{
+              backgroundColor: appTheme.card,
+              borderColor: appTheme.cardBorder,
+            }}
           >
-            <Text className="text-primary font-semibold mb-1">
+            <Text
+              className="font-semibold mb-1"
+              style={{ color: appTheme.primary }}
+            >
               Step {index + 1}
             </Text>
             <Text className="text-white font-semibold text-base mb-1">
@@ -54,7 +66,8 @@ export default function AppIntroScreen() {
 
         <TouchableOpacity
           onPress={() => router.replace("/")}
-          className="bg-primary rounded-2xl py-3 items-center mt-2"
+          className="rounded-2xl py-3 items-center mt-2"
+          style={{ backgroundColor: appTheme.primary }}
           activeOpacity={0.8}
         >
           <Text className="text-black font-bold">Start Using App</Text>
