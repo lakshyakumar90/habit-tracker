@@ -4,3 +4,45 @@ node_modules
 
 .claude
 .augment
+
+# dependencies (will be reinstalled on server)
+node_modules
+
+# local files
+.git
+.gitignore
+.easignore
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# expo cache
+.expo
+.expo-shared
+
+# build outputs
+android/build
+ios/build
+
+# temp / cache
+.cache
+dist
+build
+
+# env files (optional but recommended)
+.env
+.env.local
+
+# IDE files
+.vscode
+.idea
+
+# test / docs
+__tests__
+docs

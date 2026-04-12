@@ -1,13 +1,10 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import * as Device from "expo-device";
 import { Habit } from "@/types";
+import * as Device from "expo-device";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
-const REMINDER_KIND = "habit-reminder";
 const REMINDER_CHANNEL_ID = "habit-reminders";
-const REMINDER_REGISTRY_KEY = "habit-reminder-registry-v1";
-const REMINDER_PERMISSION_DENIED_KEY = "notification_permission_denied";
 
 const WEEKDAY_MAP: Record<string, number> = {
   sun: 1,
@@ -29,400 +26,295 @@ const WEEKDAY_MAP: Record<string, number> = {
   saturday: 7,
 };
 
-type NotificationsModule = typeof import("expo-notifications");
-
-type StoredReminderRegistration = {
-  habitId: string;
-  reminderId: string;
-  habitName: string;
-  time: string;
-  weekdays: number[];
-  notificationIds: string[];
-  enabled: boolean;
-  updatedAt: string;
-};
-
-type ReminderRegistry = Record<string, StoredReminderRegistration>;
-
-let handlerConfigured = false;
-let notificationsModulePromise: Promise<NotificationsModule | null> | null =
-  null;
-
-const isExpoGo = () => Constants.appOwnership === "expo";
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export const isReminderSupported = () =>
-  Platform.OS !== "web" && Device.isDevice && !isExpoGo();
+  Platform.OS !== "web" && Device.isDevice;
 
-const getNotificationsModule = async () => {
-  if (!isReminderSupported()) return null;
-  if (!notificationsModulePromise) {
-    notificationsModulePromise = import("expo-notifications").catch(() => null);
-  }
-  return notificationsModulePromise;
-};
+export async function requestExactAlarmPermission() {
+  if (Platform.OS !== "android" || Platform.Version < 33) return;
 
-const normalizeWeekday = (value: string): number | null => {
-  const normalized = value.trim().toLowerCase();
-  return WEEKDAY_MAP[normalized] ?? null;
-};
-
-const parseTime = (value: string) => {
-  const match = value.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-  return { hour, minute };
-};
-
-const reminderStorageKey = (habitId: string, reminderId: string) =>
-  `${habitId}:${reminderId}`;
-
-const readReminderRegistry = async (): Promise<ReminderRegistry> => {
   try {
-    const raw = await AsyncStorage.getItem(REMINDER_REGISTRY_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as ReminderRegistry;
-  } catch {
-    return {};
+    await IntentLauncher.startActivityAsync(
+      "android.settings.REQUEST_SCHEDULE_EXACT_ALARM",
+    );
+  } catch (error) {
+    console.warn("[Notifications] Exact alarm permission error:", error);
   }
-};
+}
 
-const writeReminderRegistry = async (registry: ReminderRegistry) => {
-  await AsyncStorage.setItem(REMINDER_REGISTRY_KEY, JSON.stringify(registry));
-};
-
-const upsertStoredReminderRegistration = async (
-  registration: StoredReminderRegistration,
-) => {
-  const registry = await readReminderRegistry();
-  registry[reminderStorageKey(registration.habitId, registration.reminderId)] =
-    registration;
-  await writeReminderRegistry(registry);
-};
-
-const removeStoredReminderRegistration = async (
-  habitId: string,
-  reminderId?: string,
-) => {
-  const registry = await readReminderRegistry();
-  const entries = Object.entries(registry).filter(([_, value]) =>
-    reminderId
-      ? value.habitId === habitId && value.reminderId === reminderId
-      : value.habitId === habitId,
-  );
-
-  for (const [key] of entries) {
-    delete registry[key];
+export async function requestReminderPermission(): Promise<boolean> {
+  if (!isReminderSupported()) {
+    console.warn("[Notifications] Physical device required");
+    return false;
   }
 
-  await writeReminderRegistry(registry);
-};
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  let finalStatus = existing;
 
-export const hasDeniedReminderPermission = async () =>
-  (await AsyncStorage.getItem(REMINDER_PERMISSION_DENIED_KEY)) === "true";
+  if (existing !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+      },
+    });
+    finalStatus = status;
+  }
 
-export const setupReminderNotifications = async () => {
-  if (handlerConfigured || !isReminderSupported()) return null;
-  const Notifications = await getNotificationsModule();
-  if (!Notifications) return null;
+  if (finalStatus !== "granted") {
+    console.warn("[Notifications] Permission denied");
+    return false;
+  }
 
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  await setupReminderNotificationChannel();
+  return true;
+}
 
-  handlerConfigured = true;
-  return Notifications;
-};
-
-export const setupReminderNotificationChannel = async () => {
-  const Notifications = await setupReminderNotifications();
-  if (!Notifications || Platform.OS !== "android") return;
+export async function setupReminderNotificationChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
 
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: "Habit Reminders",
-    description: "Daily reminders for your habits",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    sound: "default",
-    lightColor: "#22c55e",
     enableLights: true,
-    enableVibrate: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    bypassDnd: false,
+    lightColor: "#FF22C55E",
+    showBadge: true,
+    description: "Daily reminders for your habits",
+    // ✅ NO sound property — uses system default automatically
   });
-};
+}
 
-export const checkReminderPermission = async () => {
-  const Notifications = await setupReminderNotifications();
-  if (!Notifications) {
-    return {
-      granted: false,
-      canAskAgain: false,
-      supported: isReminderSupported(),
-    };
+export async function cancelHabitReminders(habitId: string): Promise<void> {
+  const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
+
+  for (const notification of allScheduled) {
+    if (notification.content.data?.habitId === habitId) {
+      await Notifications.cancelScheduledNotificationAsync(
+        notification.identifier,
+      );
+      console.log(`[Notifications] Cancelled: ${notification.identifier}`);
+    }
+  }
+}
+
+export const cancelHabitReminderNotifications = cancelHabitReminders;
+
+export interface ReminderConfig {
+  habitId: string;
+  habitName: string;
+  hour: number;
+  minute: number;
+  days: number[];
+}
+
+const scheduleWeeklyEntries = async (
+  config: ReminderConfig,
+  cancelExisting: boolean,
+): Promise<string[]> => {
+  const { habitId, habitName, hour, minute, days } = config;
+
+  if (cancelExisting) {
+    await cancelHabitReminders(habitId);
   }
 
-  const current = await Notifications.getPermissionsAsync();
-  return {
-    granted:
-      current.granted ||
-      current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL,
-    canAskAgain: current.canAskAgain ?? false,
-    supported: true,
-  };
-};
+  const scheduledIds: string[] = [];
 
-export const requestReminderPermission = async (): Promise<boolean> => {
-  const Notifications = await setupReminderNotifications();
-  if (!Notifications) return false;
-
-  const current = await Notifications.getPermissionsAsync();
-  if (
-    current.granted ||
-    current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  ) {
-    await AsyncStorage.removeItem(REMINDER_PERMISSION_DENIED_KEY);
-    await setupReminderNotificationChannel();
-    return true;
-  }
-
-  const requested = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: true,
-      allowSound: true,
-      allowCriticalAlerts: false,
-      provideAppNotificationSettings: true,
-    },
-  });
-
-  const granted =
-    requested.granted ||
-    requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-
-  if (granted) {
-    await AsyncStorage.removeItem(REMINDER_PERMISSION_DENIED_KEY);
-    await setupReminderNotificationChannel();
-    return true;
-  }
-
-  await AsyncStorage.setItem(REMINDER_PERMISSION_DENIED_KEY, "true");
-  return false;
-};
-
-export const getScheduledReminderNotifications = async () => {
-  const Notifications = await getNotificationsModule();
-  if (!Notifications) return [];
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  return scheduled.filter(
-    (item) =>
-      item.content.data?.kind === REMINDER_KIND ||
-      item.content.data?.type === REMINDER_KIND,
-  );
-};
-
-const getHabitWeekdays = (habit: Habit) =>
-  habit.frequency === "weekly"
-    ? habit.days
-        .map((day) => normalizeWeekday(day))
-        .filter((day): day is number => day !== null)
-    : [];
-
-export const cancelHabitReminderNotifications = async (habitId: string) => {
-  const Notifications = await getNotificationsModule();
-  if (!Notifications) {
-    await removeStoredReminderRegistration(habitId);
-    return;
-  }
-
-  const reminderNotifications = await getScheduledReminderNotifications();
-  const matching = reminderNotifications.filter(
-    (item) => item.content.data?.habitId === habitId,
-  );
-
-  await Promise.all(
-    matching.map((item) =>
-      Notifications.cancelScheduledNotificationAsync(item.identifier),
-    ),
-  );
-
-  await removeStoredReminderRegistration(habitId);
-};
-
-const scheduleReminderRegistration = async (
-  habit: Habit,
-  reminder: Habit["reminders"][number],
-) => {
-  const Notifications = await getNotificationsModule();
-  if (!Notifications) return;
-
-  const parsed = parseTime(reminder.time);
-  if (!parsed) return;
-
-  const weekdays = getHabitWeekdays(habit);
-  const scheduleForEveryDay = weekdays.length === 0 || weekdays.length === 7;
-  const notificationIds: string[] = [];
-
-  const baseContent = {
-    title: habit.name,
-    body: "Time to keep your streak going.",
-    sound: "default" as const,
-    ...(Platform.OS === "android" ? { channelId: REMINDER_CHANNEL_ID } : {}),
-    data: {
-      kind: REMINDER_KIND,
-      type: REMINDER_KIND,
-      habitId: habit.id,
-      reminderId: reminder.id,
-    },
-  };
-
-  if (scheduleForEveryDay) {
-    const id = await Notifications.scheduleNotificationAsync({
-      content: baseContent,
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: parsed.hour,
-        minute: parsed.minute,
-      },
-    });
-    notificationIds.push(id);
-  } else {
-    for (const weekday of weekdays) {
+  for (const weekday of days) {
+    try {
       const id = await Notifications.scheduleNotificationAsync({
         content: {
-          ...baseContent,
+          title: "Habit Reminder",
+          body: `Time to: ${habitName}`,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          ...(Platform.OS === "android" && {
+            channelId: REMINDER_CHANNEL_ID,
+          }),
           data: {
-            ...baseContent.data,
+            habitId,
+            habitName,
             weekday,
+            kind: "habit-reminder",
+            type: "habit-reminder",
           },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
           weekday,
-          hour: parsed.hour,
-          minute: parsed.minute,
+          hour,
+          minute,
         },
       });
-      notificationIds.push(id);
+
+      scheduledIds.push(id);
+      console.log(
+        `[Notifications] Scheduled: day=${weekday} at ${hour}:${minute} -> ID: ${id}`,
+      );
+    } catch (error) {
+      console.error(
+        `[Notifications] Failed to schedule day=${weekday}:`,
+        error,
+      );
     }
   }
 
-  await upsertStoredReminderRegistration({
-    habitId: habit.id,
-    reminderId: reminder.id,
-    habitName: habit.name,
-    time: reminder.time,
-    weekdays,
-    notificationIds,
-    enabled: reminder.enabled,
-    updatedAt: habit.updatedAt,
-  });
+  return scheduledIds;
 };
 
-export const syncHabitReminderNotifications = async (
+export async function scheduleHabitReminders(
+  config: ReminderConfig,
+): Promise<string[]> {
+  const hasPermission = await requestReminderPermission();
+  if (!hasPermission) {
+    console.warn("[Notifications] No permission, skipping schedule");
+    return [];
+  }
+
+  const scheduledIds = await scheduleWeeklyEntries(config, true);
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  console.log(
+    "[Notifications] Total scheduled:",
+    all.length,
+    all.map((n) => ({
+      id: n.identifier,
+      trigger: n.trigger,
+      data: n.content.data,
+    })),
+  );
+
+  return scheduledIds;
+}
+
+export async function scheduleTestReminder(): Promise<string | null> {
+  const hasPermission = await requestReminderPermission();
+  if (!hasPermission) return null;
+
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Test Reminder",
+      body: "This fired 10 seconds after scheduling!",
+      ...(Platform.OS === "android" && {
+        channelId: REMINDER_CHANNEL_ID,
+      }),
+      data: { test: true },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 10,
+    },
+  });
+
+  console.log("[Notifications] Test scheduled, ID:", id);
+  return id;
+}
+
+export async function debugListScheduled(): Promise<void> {
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  console.log("[Notifications] ALL SCHEDULED:", JSON.stringify(all, null, 2));
+}
+
+const parseTime = (value: string) => {
+  const [hourRaw, minuteRaw] = value.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return { hour, minute };
+};
+
+const normalizeDays = (habit: Habit): number[] => {
+  if (habit.frequency !== "weekly") {
+    return [1, 2, 3, 4, 5, 6, 7];
+  }
+
+  const mapped = habit.days
+    .map((day) => WEEKDAY_MAP[day.trim().toLowerCase()])
+    .filter((day): day is number => Boolean(day));
+
+  return mapped.length > 0 ? mapped : [1, 2, 3, 4, 5, 6, 7];
+};
+
+export async function syncHabitReminderNotifications(
   habit: Habit,
   remindersEnabled: boolean,
-) => {
-  if (!isReminderSupported()) return;
+): Promise<void> {
+  await cancelHabitReminders(habit.id);
 
-  await cancelHabitReminderNotifications(habit.id);
   if (!remindersEnabled || habit.archived) return;
 
-  const hasAnyEnabledReminder = habit.reminders.some((item) => item.enabled);
-  if (!hasAnyEnabledReminder) return;
+  const enabledReminders = habit.reminders.filter(
+    (reminder) => reminder.enabled,
+  );
+  if (enabledReminders.length === 0) return;
 
-  const granted = await requestReminderPermission();
-  if (!granted) return;
+  const hasPermission = await requestReminderPermission();
+  if (!hasPermission) return;
 
-  await setupReminderNotificationChannel();
+  const days = normalizeDays(habit);
 
-  for (const reminder of habit.reminders) {
-    if (!reminder.enabled) continue;
-    await scheduleReminderRegistration(habit, reminder);
+  for (const reminder of enabledReminders) {
+    const parsed = parseTime(reminder.time);
+    if (!parsed) continue;
+    await scheduleWeeklyEntries(
+      {
+        habitId: habit.id,
+        habitName: habit.name,
+        hour: parsed.hour,
+        minute: parsed.minute,
+        days,
+      },
+      false,
+    );
   }
-};
+}
 
-export const syncAllHabitReminderNotifications = async (
+let syncAllInFlight: Promise<void> | null = null;
+
+export async function syncAllHabitReminderNotifications(
   habits: Habit[],
   remindersEnabled: boolean,
-) => {
-  if (!isReminderSupported()) return;
+): Promise<void> {
+  if (syncAllInFlight) {
+    return syncAllInFlight;
+  }
 
-  const Notifications = await getNotificationsModule();
-  if (!Notifications) return;
+  syncAllInFlight = (async () => {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    if (!remindersEnabled) return;
 
-  const reminderNotifications = await getScheduledReminderNotifications();
-  await Promise.all(
-    reminderNotifications.map((item) =>
-      Notifications.cancelScheduledNotificationAsync(item.identifier),
-    ),
-  );
-  await writeReminderRegistry({});
+    for (const habit of habits) {
+      await syncHabitReminderNotifications(habit, true);
+    }
+  })();
 
+  try {
+    await syncAllInFlight;
+  } finally {
+    syncAllInFlight = null;
+  }
+}
+
+export async function rescheduleHabitRemindersIfNeeded(
+  habits: Habit[],
+  remindersEnabled: boolean,
+): Promise<void> {
   if (!remindersEnabled) return;
 
-  const granted = await requestReminderPermission();
-  if (!granted) return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  if (scheduled.length > 0) return;
 
-  for (const habit of habits) {
-    await syncHabitReminderNotifications(habit, true);
-  }
-};
+  await syncAllHabitReminderNotifications(habits, remindersEnabled);
+}
 
-export const verifyReminderScheduleState = async () => {
-  const registry = await readReminderRegistry();
-  const scheduled = await getScheduledReminderNotifications();
-  const scheduledIds = new Set(scheduled.map((item) => item.identifier));
-  const missingHabitIds = new Set<string>();
-  let expected = 0;
-
-  for (const registration of Object.values(registry)) {
-    if (!registration.enabled) continue;
-    for (const notificationId of registration.notificationIds) {
-      expected += 1;
-      if (!scheduledIds.has(notificationId)) {
-        missingHabitIds.add(registration.habitId);
-      }
-    }
-  }
-
-  return {
-    scheduled: scheduled.length,
-    expected,
-    missingHabitIds: [...missingHabitIds],
-  };
-};
-
-export const rescheduleHabitRemindersIfNeeded = async (
-  habits: Habit[],
-  remindersEnabled: boolean,
-) => {
-  if (!remindersEnabled || !isReminderSupported()) return;
-
-  const granted = await checkReminderPermission();
-  if (!granted.granted) return;
-
-  const { missingHabitIds } = await verifyReminderScheduleState();
-  if (missingHabitIds.length === 0) return;
-
-  for (const habitId of missingHabitIds) {
-    const habit = habits.find((item) => item.id === habitId);
-    if (!habit) continue;
-    await syncHabitReminderNotifications(habit, true);
-  }
-};
-
-export const clearAllReminderSchedules = async () => {
-  const Notifications = await getNotificationsModule();
-  if (Notifications) {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-  }
-  await writeReminderRegistry({});
-};
+export async function clearAllReminderSchedules(): Promise<void> {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}

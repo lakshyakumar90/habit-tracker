@@ -1,14 +1,18 @@
-// ModeSwitcher.tsx
+// ModeSwitcher.tsx (FINAL WITH modeProgress SAFE)
+
 import { getAppTheme } from "@/constants/appThemes";
-import { useHabitStore } from "@/store/useHabitStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
-import { ViewMode } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Pressable, View } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const MODES: { key: ViewMode; icon: string; label: string }[] = [
+const MODES = [
   { key: "time", icon: "timer-outline", label: "Time" },
   { key: "tick", icon: "checkmark-circle-outline", label: "Tick" },
   { key: "weekly", icon: "grid-outline", label: "Weekly" },
@@ -16,127 +20,98 @@ const MODES: { key: ViewMode; icon: string; label: string }[] = [
 ];
 
 interface ModeSwitcherProps {
-  onSelect?: (mode: ViewMode) => void;
+  onSelect?: (mode: any) => void;
+  activeMode: any;
+  modeProgress?: { value: number };
 }
 
-const ModeSwitcherButton = React.memo(function ModeSwitcherButton({
-  modeKey,
-  icon,
-  label,
-  isActive,
-  appTheme,
-  onPress,
-}: {
-  modeKey: ViewMode;
-  icon: string;
-  label: string;
-  isActive: boolean;
-  appTheme: ReturnType<typeof getAppTheme>;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      className="rounded-full min-h-[48px] flex-row items-center justify-center px-3"
-      activeOpacity={0.8}
-      style={
-        isActive
-          ? {
-              backgroundColor: appTheme.primaryLight,
-              shadowColor: appTheme.primary,
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.35,
-              shadowRadius: 8,
-              elevation: 4,
-              transform: [{ scale: 1.02 }],
-              minWidth: 90,
-            }
-          : { minWidth: 48 }
-      }
-    >
-      <Ionicons
-        name={icon as any}
-        size={20}
-        color={isActive ? "#000000" : appTheme.textSecondary}
-      />
-      {isActive && (
-        <Text
-          className="text-[12px] font-semibold ml-1.5"
-          style={{ color: "#000000" }}
-        >
-          {label}
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
-});
+/* ================= BUTTON ================= */
 
-function ModeSwitcher({ onSelect }: ModeSwitcherProps) {
-  const viewMode = useHabitStore((state) => state.viewMode);
-  const selectedTheme = useSettingsStore((state) => state.theme);
+const ModeSwitcherButton = React.memo(
+  ({ isActive, icon, label, appTheme, onPress }: any) => {
+    return (
+      <Pressable onPress={onPress} style={{ flexShrink: 1 }}>
+        <Animated.View
+          layout={LinearTransition.springify().damping(100)}
+          className="flex-row items-center justify-center rounded-full mx-0.5"
+          style={{
+            paddingHorizontal: isActive ? 14 : 11,
+            paddingVertical: 10,
+            backgroundColor: isActive ? appTheme.primary : "transparent",
+            overflow: "hidden",
+          }}
+        >
+          <Ionicons
+            name={icon}
+            size={22}
+            color={isActive ? "#000" : appTheme.textSecondary}
+            style={{ flexShrink: 0 }}
+          />
+          {isActive && (
+            <Animated.Text
+              entering={FadeIn.duration(150)}
+              exiting={FadeOut.duration(150)}
+              className="ml-1.5 text-[13px] font-bold"
+              style={{ color: "#000", flexShrink: 1 }}
+              numberOfLines={1}
+              ellipsizeMode="clip"
+            >
+              {label}
+            </Animated.Text>
+          )}
+        </Animated.View>
+      </Pressable>
+    );
+  },
+);
+
+/* ================= MAIN ================= */
+
+function ModeSwitcher({ onSelect, activeMode }: ModeSwitcherProps) {
+  const selectedTheme = useSettingsStore((s) => s.theme);
   const appTheme = getAppTheme(selectedTheme);
   const insets = useSafeAreaInsets();
-  const isTasksMode = viewMode === "tasks";
-
-  const handlers = React.useRef<Record<ViewMode, () => void>>(
-    {} as Record<ViewMode, () => void>,
-  );
-
-  // Update handler refs without re-creating objects
-  React.useMemo(() => {
-    MODES.forEach((mode) => {
-      handlers.current[mode.key] = () => onSelect?.(mode.key);
-    });
-  }, [onSelect]);
-
-  const containerStyle = React.useMemo(
-    () =>
-      isTasksMode
-        ? {
-            left: 0 as number,
-            right: 0 as number,
-            alignItems: "center" as const,
-            bottom: insets.bottom + 12,
-          }
-        : {
-            left: 16,
-            bottom: insets.bottom + 12,
-          },
-    [isTasksMode, insets.bottom],
-  );
-
-  const pillStyle = React.useMemo(
-    () => ({
-      backgroundColor: appTheme.card,
-      borderColor: `${appTheme.primary}66`,
-      shadowColor: appTheme.primary,
-      shadowOffset: { width: 0, height: 4 } as const,
-      shadowOpacity: 0.15,
-      shadowRadius: 10,
-      elevation: 5,
-    }),
-    [appTheme.card, appTheme.primary],
-  );
 
   return (
-    <View className="absolute" style={containerStyle}>
-      <View
-        className="flex-row items-center rounded-[30px] p-2 border shadow-xl"
-        style={pillStyle}
+    <Animated.View
+      layout={LinearTransition.duration(180)}
+      className="absolute flex-row"
+      style={{
+        left: 16,
+        right: activeMode === "tasks" ? 16 : 80, // Allow full width to center it in tasks view
+        bottom: insets.bottom + 16,
+        justifyContent: activeMode === "tasks" ? "center" : "flex-start",
+      }}
+      pointerEvents="box-none"
+    >
+      <Animated.View
+        layout={LinearTransition.springify().damping(24).stiffness(250)}
+        className="flex-row items-center rounded-full px-1 py-2"
+        style={{
+          backgroundColor: `${appTheme.card}E6`, // Slight transparency
+          borderWidth: 1,
+          borderColor: `${appTheme.primary}40`,
+          shadowColor: appTheme.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35,
+          shadowRadius: 16,
+          elevation: 10,
+          maxWidth: "100%", // Constrain to prevent overflow further
+        }}
+        pointerEvents="auto"
       >
         {MODES.map((mode) => (
           <ModeSwitcherButton
             key={mode.key}
-            modeKey={mode.key}
             icon={mode.icon}
             label={mode.label}
-            isActive={viewMode === mode.key}
+            isActive={mode.key === activeMode}
             appTheme={appTheme}
-            onPress={handlers.current[mode.key]}
+            onPress={() => onSelect?.(mode.key)}
           />
         ))}
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 

@@ -1,7 +1,4 @@
-import {
-  rescheduleHabitRemindersIfNeeded,
-  syncAllHabitReminderNotifications,
-} from "@/services/reminderNotifications";
+import { syncAllHabitReminderNotifications } from "@/services/reminderNotifications";
 import { useHabitStore } from "@/store/useHabitStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useEffect } from "react";
@@ -15,11 +12,6 @@ export default function ReminderBootstrap() {
   useEffect(() => {
     if (!habitsHydrated || !settingsHydrated) return;
     void syncAllHabitReminderNotifications(habits, remindersEnabled);
-  }, [habits, remindersEnabled, habitsHydrated, settingsHydrated]);
-
-  useEffect(() => {
-    if (!habitsHydrated || !settingsHydrated) return;
-    void rescheduleHabitRemindersIfNeeded(habits, remindersEnabled);
   }, [habits, remindersEnabled, habitsHydrated, settingsHydrated]);
 
   return null;

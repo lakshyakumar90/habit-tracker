@@ -1,7 +1,6 @@
 import { useSettingsStore } from "@/store/useSettingsStore";
 import * as Network from "expo-network";
 import { Alert } from "react-native";
-import { authClient, signInWithGoogle } from "./auth";
 import { convex, hasConfiguredConvexUrl } from "./convex";
 import { syncFunctions } from "./convexFunctions";
 import { applySnapshotToStores, buildLocalSnapshot } from "./snapshot";
@@ -44,21 +43,10 @@ const finishEnableCloudSync = async (runId: number) => {
   enableInFlight = (async () => {
     activeEnableRunId = runId;
     const settings = useSettingsStore.getState();
-    const activeSession = await authClient.getSession();
     if (isRunCancelled(runId)) {
       settings.setCloudSyncStatus("local");
       return;
     }
-
-    if (!activeSession.data?.session) {
-      throw new Error("Google sign-in did not complete.");
-    }
-
-    settings.setAuthUserSummary({
-      name: activeSession.data?.user?.name,
-      email: activeSession.data?.user?.email,
-      image: activeSession.data?.user?.image ?? null,
-    });
 
     await convex.mutation(syncFunctions.upsertViewerProfile, {});
     if (isRunCancelled(runId)) {
@@ -98,8 +86,6 @@ const finishEnableCloudSync = async (runId: number) => {
       if (!confirmed) {
         // user aborted
         settings.setCloudSyncStatus("local");
-        // Sign out so they can try another account or stay local
-        await authClient.signOut();
         settings.setAuthUserSummary(undefined);
         return;
       }
@@ -141,11 +127,6 @@ export const enableCloudSync = async () => {
       settings.setCloudSyncStatus("local");
       return;
     }
-    const session = await authClient.getSession();
-    if (!session.data?.session) {
-      await signInWithGoogle();
-      return;
-    }
     await finishEnableCloudSync(runId);
   } catch (error) {
     console.error("Enable cloud sync failed", error);
@@ -162,11 +143,6 @@ export const resumePendingCloudSyncEnable = async () => {
 
   const settings = useSettingsStore.getState();
   if (settings.cloudSyncEnabled || settings.cloudSyncStatus !== "migrating") {
-    return;
-  }
-
-  const session = await authClient.getSession();
-  if (!session.data?.session) {
     return;
   }
 
@@ -192,13 +168,6 @@ export const cancelPendingCloudSyncEnable = async () => {
   }
 
   settings.setCloudSyncStatus("local");
-
-  try {
-    await authClient.signOut();
-  } catch (error) {
-    console.error("Cloud sync cancel sign-out failed", error);
-  }
-
   settings.setAuthUserSummary(undefined);
 };
 
@@ -211,7 +180,6 @@ export const disableCloudSync = async () => {
     applySnapshotToStores(snapshot);
     useSettingsStore.getState().setCloudSyncEnabled(false);
     useSettingsStore.getState().setAuthUserSummary(undefined);
-    await authClient.signOut().catch(() => null);
   } catch (error) {
     console.error("Disable cloud sync failed", error);
     setError(
@@ -230,9 +198,6 @@ export const refreshCloudSnapshot = async () => {
     const settings = useSettingsStore.getState();
     if (!settings.cloudSyncEnabled) return false;
     if (!(await canAccessCloudSync())) return false;
-
-    const session = await authClient.getSession();
-    if (!session.data?.session) return false;
 
     const snapshot = await convex.mutation(syncFunctions.enableSync, {
       snapshot: buildLocalSnapshot(),

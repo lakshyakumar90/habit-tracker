@@ -5,6 +5,30 @@ export const syncFunctions = {
   getSnapshot: makeFunctionReference<"query", {}, SyncSnapshot>(
     "sync:getSnapshot",
   ),
+  debugAuth: makeFunctionReference<
+    "query",
+    {},
+    {
+      authenticated: boolean;
+      reason?: string;
+      subject?: string;
+      issuer?: string;
+      email?: string;
+      tokenIdentifier?: string;
+    }
+  >("sync:debugAuth"),
+  testAuth: makeFunctionReference<
+    "query",
+    {},
+    {
+      status: "NOT_AUTHENTICATED" | "AUTHENTICATED";
+      hint?: string;
+      subject?: string;
+      issuer?: string;
+      email?: string;
+      tokenIdentifier?: string;
+    }
+  >("sync:testAuth"),
   enableSync: makeFunctionReference<
     "mutation",
     { snapshot: SyncSnapshot },

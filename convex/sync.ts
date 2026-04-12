@@ -1,10 +1,69 @@
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
-import { authComponent } from "./auth";
 
-const requireViewer = async (ctx: any) => {
-  return await authComponent.getAuthUser(ctx);
+// ✅ Helper — throws if not authenticated (for mutations that REQUIRE auth)
+async function requireViewer(ctx: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Not authenticated");
+  }
+  return identity;
+}
+
+const createFallbackId = () =>
+  `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const normalizeHabitForStorage = (habit: any, userId: string) => {
+  const habitId = String(habit?.habitId ?? habit?.id ?? "").trim();
+
+  return {
+    userId,
+    habitId,
+    name: String(habit?.name ?? ""),
+    type: habit?.type === "time" ? "time" : "check",
+    color: String(habit?.color ?? "#22C55E"),
+    icon: String(habit?.icon ?? "checkmark-circle"),
+    category: String(habit?.category ?? "General"),
+    frequency: habit?.frequency === "weekly" ? "weekly" : "daily",
+    targetCount: typeof habit?.targetCount === "number" ? habit.targetCount : 1,
+    days: Array.isArray(habit?.days)
+      ? habit.days.map((day: any) => String(day))
+      : [],
+    reminders: Array.isArray(habit?.reminders)
+      ? habit.reminders.map((reminder: any) => ({
+          id: String(reminder?.id ?? createFallbackId()),
+          time: String(reminder?.time ?? "09:00"),
+          enabled: reminder?.enabled !== false,
+        }))
+      : [],
+    completionTargetEnabled: Boolean(habit?.completionTargetEnabled),
+    createdAt: String(habit?.createdAt ?? new Date().toISOString()),
+    updatedAt: String(habit?.updatedAt ?? new Date().toISOString()),
+    archived: Boolean(habit?.archived),
+    ...(habit?.deletedAt ? { deletedAt: String(habit.deletedAt) } : {}),
+  };
 };
+
+const normalizeTaskListForStorage = (taskList: any, userId: string) => ({
+  userId,
+  taskListId: String(taskList?.taskListId ?? taskList?.id ?? "").trim(),
+  name: String(taskList?.name ?? ""),
+  createdAt: String(taskList?.createdAt ?? new Date().toISOString()),
+  updatedAt: String(taskList?.updatedAt ?? new Date().toISOString()),
+  ...(taskList?.deletedAt ? { deletedAt: String(taskList.deletedAt) } : {}),
+});
+
+const normalizeTaskForStorage = (task: any, userId: string) => ({
+  userId,
+  taskId: String(task?.taskId ?? task?.id ?? "").trim(),
+  listId: String(task?.listId ?? ""),
+  title: String(task?.title ?? ""),
+  date: String(task?.date ?? ""),
+  completed: Boolean(task?.completed),
+  createdAt: String(task?.createdAt ?? new Date().toISOString()),
+  updatedAt: String(task?.updatedAt ?? new Date().toISOString()),
+  ...(task?.deletedAt ? { deletedAt: String(task.deletedAt) } : {}),
+});
 
 const getSnapshotForUser = async (ctx: any, userId: string) => {
   const [habits, logs, taskLists, tasks, settings] = await Promise.all([
@@ -94,7 +153,51 @@ export const getSnapshot = queryGeneric({
   args: {},
   handler: async (ctx: any) => {
     const viewer = await requireViewer(ctx);
-    return await getSnapshotForUser(ctx, viewer._id);
+    return await getSnapshotForUser(ctx, viewer.tokenIdentifier);
+  },
+});
+
+export const debugAuth = queryGeneric({
+  args: {},
+  handler: async (ctx: any) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { authenticated: false, reason: "getUserIdentity returned null" };
+    }
+
+    return {
+      authenticated: true,
+      subject: identity.subject,
+      issuer: identity.issuer,
+      email: identity.email,
+      tokenIdentifier: identity.tokenIdentifier,
+    };
+  },
+});
+
+export const testAuth = queryGeneric({
+  args: {},
+  handler: async (ctx: any) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    console.log("=== AUTH DEBUG ===");
+    console.log("identity:", identity);
+    console.log("==================");
+
+    if (!identity) {
+      return {
+        status: "NOT_AUTHENTICATED",
+        hint: "Check auth.config.ts domain matches JWT iss claim",
+      };
+    }
+
+    return {
+      status: "AUTHENTICATED",
+      subject: identity.subject,
+      issuer: identity.issuer,
+      email: identity.email,
+      tokenIdentifier: identity.tokenIdentifier,
+    };
   },
 });
 
@@ -104,13 +207,15 @@ export const upsertViewerProfile = mutationGeneric({
     const viewer = await requireViewer(ctx);
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_user_id", (q: any) => q.eq("userId", viewer._id))
+      .withIndex("by_user_id", (q: any) =>
+        q.eq("userId", viewer.tokenIdentifier),
+      )
       .unique();
     const payload = {
-      userId: viewer._id,
+      userId: viewer.tokenIdentifier,
       email: viewer.email,
       name: viewer.name,
-      image: viewer.image ?? undefined,
+      image: viewer.pictureUrl ?? undefined,
       updatedAt: new Date().toISOString(),
     };
     if (existing) {
@@ -131,27 +236,25 @@ export const enableSync = mutationGeneric({
   },
   handler: async (ctx: any, args: any) => {
     const viewer = await requireViewer(ctx);
-    const userId = viewer._id;
+    const userId = viewer.tokenIdentifier;
 
-    for (const habit of args.snapshot.habits ?? []) {
+    for (const rawHabit of args.snapshot.habits ?? []) {
+      const habit = normalizeHabitForStorage(rawHabit, userId);
+      if (!habit.habitId) continue;
+
       const existing = await ctx.db
         .query("habits")
         .withIndex("by_user_and_habit", (q: any) =>
-          q.eq("userId", userId).eq("habitId", habit.id),
+          q.eq("userId", userId).eq("habitId", habit.habitId),
         )
         .unique();
-      const payload = {
-        userId,
-        habitId: habit.id,
-        ...habit,
-        deletedAt: undefined,
-      };
+
       if (existing) {
         if (existing.updatedAt <= habit.updatedAt) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch(existing._id, habit);
         }
       } else {
-        await ctx.db.insert("habits", payload);
+        await ctx.db.insert("habits", habit);
       }
     }
 
@@ -175,45 +278,43 @@ export const enableSync = mutationGeneric({
       }
     }
 
-    for (const taskList of args.snapshot.taskLists ?? []) {
+    for (const rawTaskList of args.snapshot.taskLists ?? []) {
+      const taskList = normalizeTaskListForStorage(rawTaskList, userId);
+      if (!taskList.taskListId) continue;
+
       const existing = await ctx.db
         .query("taskLists")
         .withIndex("by_user_and_task_list", (q: any) =>
-          q.eq("userId", userId).eq("taskListId", taskList.id),
+          q.eq("userId", userId).eq("taskListId", taskList.taskListId),
         )
         .unique();
-      const payload = {
-        userId,
-        taskListId: taskList.id,
-        ...taskList,
-      };
+
       if (existing) {
         if (existing.updatedAt <= taskList.updatedAt) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch(existing._id, taskList);
         }
       } else {
-        await ctx.db.insert("taskLists", payload);
+        await ctx.db.insert("taskLists", taskList);
       }
     }
 
-    for (const task of args.snapshot.tasks ?? []) {
+    for (const rawTask of args.snapshot.tasks ?? []) {
+      const task = normalizeTaskForStorage(rawTask, userId);
+      if (!task.taskId) continue;
+
       const existing = await ctx.db
         .query("tasks")
         .withIndex("by_user_and_task", (q: any) =>
-          q.eq("userId", userId).eq("taskId", task.id),
+          q.eq("userId", userId).eq("taskId", task.taskId),
         )
         .unique();
-      const payload = {
-        userId,
-        taskId: task.id,
-        ...task,
-      };
+
       if (existing) {
         if (existing.updatedAt <= task.updatedAt) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch(existing._id, task);
         }
       } else {
-        await ctx.db.insert("tasks", payload);
+        await ctx.db.insert("tasks", task);
       }
     }
 
@@ -252,23 +353,23 @@ export const upsertHabit = mutationGeneric({
   args: { habit: v.any() },
   handler: async (ctx: any, args: any) => {
     const viewer = await requireViewer(ctx);
+    const habit = normalizeHabitForStorage(args.habit, viewer.tokenIdentifier);
+    if (!habit.habitId) {
+      throw new Error("Habit id is required for sync");
+    }
+
     const existing = await ctx.db
       .query("habits")
       .withIndex("by_user_and_habit", (q: any) =>
-        q.eq("userId", viewer._id).eq("habitId", args.habit.id),
+        q.eq("userId", viewer.tokenIdentifier).eq("habitId", habit.habitId),
       )
       .unique();
-    const payload = {
-      userId: viewer._id,
-      habitId: args.habit.id,
-      ...args.habit,
-      deletedAt: undefined,
-    };
+
     if (existing) {
-      await ctx.db.patch(existing._id, payload);
+      await ctx.db.patch(existing._id, habit);
       return existing._id;
     }
-    return await ctx.db.insert("habits", payload);
+    return await ctx.db.insert("habits", habit);
   },
 });
 
@@ -282,7 +383,7 @@ export const deleteHabit = mutationGeneric({
     const existing = await ctx.db
       .query("habits")
       .withIndex("by_user_and_habit", (q: any) =>
-        q.eq("userId", viewer._id).eq("habitId", args.habitId),
+        q.eq("userId", viewer.tokenIdentifier).eq("habitId", args.habitId),
       )
       .unique();
     if (existing) {
@@ -302,13 +403,13 @@ export const upsertHabitLog = mutationGeneric({
       .query("habitLogs")
       .withIndex("by_user_habit_and_date", (q: any) =>
         q
-          .eq("userId", viewer._id)
+          .eq("userId", viewer.tokenIdentifier)
           .eq("habitId", args.log.habitId)
           .eq("date", args.log.date),
       )
       .unique();
     const payload = {
-      userId: viewer._id,
+      userId: viewer.tokenIdentifier,
       ...args.log,
       deletedAt: undefined,
     };
@@ -332,7 +433,7 @@ export const deleteHabitLog = mutationGeneric({
       .query("habitLogs")
       .withIndex("by_user_habit_and_date", (q: any) =>
         q
-          .eq("userId", viewer._id)
+          .eq("userId", viewer.tokenIdentifier)
           .eq("habitId", args.habitId)
           .eq("date", args.date),
       )
@@ -350,23 +451,28 @@ export const upsertTaskList = mutationGeneric({
   args: { taskList: v.any() },
   handler: async (ctx: any, args: any) => {
     const viewer = await requireViewer(ctx);
+    const taskList = normalizeTaskListForStorage(
+      args.taskList,
+      viewer.tokenIdentifier,
+    );
+    if (!taskList.taskListId) {
+      throw new Error("Task list id is required for sync");
+    }
+
     const existing = await ctx.db
       .query("taskLists")
       .withIndex("by_user_and_task_list", (q: any) =>
-        q.eq("userId", viewer._id).eq("taskListId", args.taskList.id),
+        q
+          .eq("userId", viewer.tokenIdentifier)
+          .eq("taskListId", taskList.taskListId),
       )
       .unique();
-    const payload = {
-      userId: viewer._id,
-      taskListId: args.taskList.id,
-      ...args.taskList,
-      deletedAt: undefined,
-    };
+
     if (existing) {
-      await ctx.db.patch(existing._id, payload);
+      await ctx.db.patch(existing._id, taskList);
       return existing._id;
     }
-    return await ctx.db.insert("taskLists", payload);
+    return await ctx.db.insert("taskLists", taskList);
   },
 });
 
@@ -380,7 +486,9 @@ export const deleteTaskList = mutationGeneric({
     const existing = await ctx.db
       .query("taskLists")
       .withIndex("by_user_and_task_list", (q: any) =>
-        q.eq("userId", viewer._id).eq("taskListId", args.taskListId),
+        q
+          .eq("userId", viewer.tokenIdentifier)
+          .eq("taskListId", args.taskListId),
       )
       .unique();
     if (existing) {
@@ -396,23 +504,23 @@ export const upsertTask = mutationGeneric({
   args: { task: v.any() },
   handler: async (ctx: any, args: any) => {
     const viewer = await requireViewer(ctx);
+    const task = normalizeTaskForStorage(args.task, viewer.tokenIdentifier);
+    if (!task.taskId) {
+      throw new Error("Task id is required for sync");
+    }
+
     const existing = await ctx.db
       .query("tasks")
       .withIndex("by_user_and_task", (q: any) =>
-        q.eq("userId", viewer._id).eq("taskId", args.task.id),
+        q.eq("userId", viewer.tokenIdentifier).eq("taskId", task.taskId),
       )
       .unique();
-    const payload = {
-      userId: viewer._id,
-      taskId: args.task.id,
-      ...args.task,
-      deletedAt: undefined,
-    };
+
     if (existing) {
-      await ctx.db.patch(existing._id, payload);
+      await ctx.db.patch(existing._id, task);
       return existing._id;
     }
-    return await ctx.db.insert("tasks", payload);
+    return await ctx.db.insert("tasks", task);
   },
 });
 
@@ -426,7 +534,7 @@ export const deleteTask = mutationGeneric({
     const existing = await ctx.db
       .query("tasks")
       .withIndex("by_user_and_task", (q: any) =>
-        q.eq("userId", viewer._id).eq("taskId", args.taskId),
+        q.eq("userId", viewer.tokenIdentifier).eq("taskId", args.taskId),
       )
       .unique();
     if (existing) {
@@ -444,10 +552,12 @@ export const upsertSettings = mutationGeneric({
     const viewer = await requireViewer(ctx);
     const existing = await ctx.db
       .query("userSettings")
-      .withIndex("by_user_id", (q: any) => q.eq("userId", viewer._id))
+      .withIndex("by_user_id", (q: any) =>
+        q.eq("userId", viewer.tokenIdentifier),
+      )
       .unique();
     const payload = {
-      userId: viewer._id,
+      userId: viewer.tokenIdentifier,
       ...args.settings,
       updatedAt: new Date().toISOString(),
     };
@@ -463,6 +573,6 @@ export const disableSync = queryGeneric({
   args: {},
   handler: async (ctx: any) => {
     const viewer = await requireViewer(ctx);
-    return await getSnapshotForUser(ctx, viewer._id);
+    return await getSnapshotForUser(ctx, viewer.tokenIdentifier);
   },
 });

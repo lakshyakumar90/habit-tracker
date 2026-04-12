@@ -80,6 +80,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       "android.permission.ACCESS_FINE_LOCATION",
       "android.permission.ACCESS_COARSE_LOCATION",
     ],
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "habittracker",
+          },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ],
   },
 
   web: {
@@ -105,7 +117,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         icon: "./assets/images/android-icon-monochrome.png",
         color: "#4ADE80",
-        sounds: [],
         androidMode: "default",
       },
     ],

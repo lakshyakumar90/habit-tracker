@@ -1,50 +1,48 @@
 import { AppSettings, Habit, HabitLogEntry, Task, TaskList } from "@/types";
+import * as WebBrowser from "expo-web-browser";
 import { convex } from "./convex";
 import { syncFunctions } from "./convexFunctions";
 
-export const syncUpsertHabit = async (habit: Habit) => {
-  await convex.mutation(syncFunctions.upsertHabit, { habit });
-};
+// Complete auth session if OAuth redirect occurs
+WebBrowser.maybeCompleteAuthSession();
 
-export const syncDeletedHabit = async (habitId: string, deletedAt: string) => {
-  await convex.mutation(syncFunctions.deleteHabit, { habitId, deletedAt });
-};
+// ─── Habits ───────────────────────────────────────────────────────────────────
 
-export const syncUpsertHabitLog = async (log: HabitLogEntry) => {
-  await convex.mutation(syncFunctions.upsertHabitLog, { log });
-};
+export const syncUpsertHabit = (habit: Habit) =>
+  convex.mutation(syncFunctions.upsertHabit, { habit });
 
-export const syncDeletedHabitLog = async (
+export const syncDeletedHabit = (habitId: string, deletedAt: string) =>
+  convex.mutation(syncFunctions.deleteHabit, { habitId, deletedAt });
+
+// ─── Habit Logs ───────────────────────────────────────────────────────────────
+
+export const syncUpsertHabitLog = (log: HabitLogEntry) =>
+  convex.mutation(syncFunctions.upsertHabitLog, { log });
+
+export const syncDeletedHabitLog = (
   habitId: string,
   date: string,
   deletedAt: string,
-) => {
-  await convex.mutation(syncFunctions.deleteHabitLog, {
-    habitId,
-    date,
-    deletedAt,
-  });
-};
+) =>
+  convex.mutation(syncFunctions.deleteHabitLog, { habitId, date, deletedAt });
 
-export const syncUpsertTaskList = async (taskList: TaskList) => {
-  await convex.mutation(syncFunctions.upsertTaskList, { taskList });
-};
+// ─── Task Lists ───────────────────────────────────────────────────────────────
 
-export const syncDeletedTaskList = async (
-  taskListId: string,
-  deletedAt: string,
-) => {
-  await convex.mutation(syncFunctions.deleteTaskList, { taskListId, deletedAt });
-};
+export const syncUpsertTaskList = (taskList: TaskList) =>
+  convex.mutation(syncFunctions.upsertTaskList, { taskList });
 
-export const syncUpsertTask = async (task: Task) => {
-  await convex.mutation(syncFunctions.upsertTask, { task });
-};
+export const syncDeletedTaskList = (taskListId: string, deletedAt: string) =>
+  convex.mutation(syncFunctions.deleteTaskList, { taskListId, deletedAt });
 
-export const syncDeletedTask = async (taskId: string, deletedAt: string) => {
-  await convex.mutation(syncFunctions.deleteTask, { taskId, deletedAt });
-};
+// ─── Tasks ────────────────────────────────────────────────────────────────────
 
-export const syncUpsertSettings = async (settings: Partial<AppSettings>) => {
-  await convex.mutation(syncFunctions.upsertSettings, { settings });
-};
+export const syncUpsertTask = (task: Task) =>
+  convex.mutation(syncFunctions.upsertTask, { task });
+
+export const syncDeletedTask = (taskId: string, deletedAt: string) =>
+  convex.mutation(syncFunctions.deleteTask, { taskId, deletedAt });
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export const syncUpsertSettings = (settings: Partial<AppSettings>) =>
+  convex.mutation(syncFunctions.upsertSettings, { settings });

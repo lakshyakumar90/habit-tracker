@@ -1,41 +1,57 @@
-import { authClient } from "@/services/auth";
 import {
-  refreshCloudSnapshot,
-  resumePendingCloudSyncEnable,
+    refreshCloudSnapshot,
+    resumePendingCloudSyncEnable,
 } from "@/services/syncRepository";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 
 export default function SyncBootstrap() {
   const cloudSyncEnabled = useSettingsStore((state) => state.cloudSyncEnabled);
-  const session = authClient.useSession();
-  const sessionId = session.data?.session?.id;
+  const cloudSyncStatus = useSettingsStore((state) => state.cloudSyncStatus);
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const sessionId = user?.id;
 
   useEffect(() => {
-    if (session.data?.user) {
+    if (user) {
       useSettingsStore.getState().setAuthUserSummary({
-        name: session.data.user.name,
-        email: session.data.user.email,
-        image: session.data.user.image ?? null,
+        name: user.fullName ?? user.username ?? undefined,
+        email: user.primaryEmailAddress?.emailAddress,
+        image: user.imageUrl ?? null,
       });
       return;
     }
 
-    if (!cloudSyncEnabled) {
+    if (!isSignedIn || !cloudSyncEnabled) {
       useSettingsStore.getState().setAuthUserSummary(undefined);
     }
-  }, [cloudSyncEnabled, session.data?.user]);
+  }, [cloudSyncEnabled, isSignedIn, user]);
 
   useEffect(() => {
+    if (!isLoaded) return;
+
+    if (!isSignedIn) {
+      if (cloudSyncStatus === "migrating") {
+        useSettingsStore.getState().setCloudSyncStatus("local");
+      }
+      return;
+    }
+
     if (!sessionId) return;
-    void resumePendingCloudSyncEnable();
-  }, [sessionId]);
+
+    const timer = setTimeout(() => {
+      void resumePendingCloudSyncEnable();
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [cloudSyncStatus, isLoaded, isSignedIn, sessionId]);
 
   useEffect(() => {
-    if (!cloudSyncEnabled) return;
+    if (!cloudSyncEnabled || !isLoaded || !isSignedIn) return;
     void refreshCloudSnapshot();
-  }, [cloudSyncEnabled, sessionId]);
+  }, [cloudSyncEnabled, isLoaded, isSignedIn, sessionId]);
 
   useEffect(() => {
     if (!cloudSyncEnabled) return;

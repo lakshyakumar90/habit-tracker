@@ -1,10 +1,11 @@
 import { getAppTheme } from "@/constants/appThemes";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import BottomSheet, {
-    BottomSheetBackdrop,
-    BottomSheetView,
+  BottomSheetBackdrop,
+  BottomSheetBackdropProps,
+  BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { StyleSheet } from "react-native";
 
 interface CustomBottomSheetProps {
@@ -14,22 +15,33 @@ interface CustomBottomSheetProps {
   onClose?: () => void;
 }
 
-export default function CustomBottomSheet({
+function CustomBottomSheet({
   bottomSheetRef,
-  snapPoints = ["50%", "90%"],
+  snapPoints = DEFAULT_SNAP_POINTS,
   children,
   onClose,
 }: CustomBottomSheetProps) {
-  const theme = useSettingsStore((state) => state.theme);
-  const appTheme = getAppTheme(theme);
+  const theme = useSettingsStore((s) => s.theme);
+  const appTheme = useMemo(() => getAppTheme(theme), [theme]);
+
+  const backgroundStyle = useMemo(
+    () => ({ backgroundColor: appTheme.card }),
+    [appTheme.card],
+  );
+
+  const handleIndicatorStyle = useMemo(
+    () => ({ backgroundColor: appTheme.textMuted }),
+    [appTheme.textMuted],
+  );
 
   const renderBackdrop = useCallback(
-    (props: any) => (
+    (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
         {...props}
         disappearsOnIndex={-1}
         appearsOnIndex={0}
         opacity={0.5}
+        pressBehavior="close"
       />
     ),
     [],
@@ -43,8 +55,14 @@ export default function CustomBottomSheet({
       enablePanDownToClose
       backdropComponent={renderBackdrop}
       onClose={onClose}
-      backgroundStyle={{ backgroundColor: appTheme.card }}
-      handleIndicatorStyle={{ backgroundColor: appTheme.textMuted }}
+      backgroundStyle={backgroundStyle}
+      handleIndicatorStyle={handleIndicatorStyle}
+      // Performance: prevent unnecessary layout recalculations
+      enableDynamicSizing={false}
+      // Performance: reduce overdraw on Android
+      android_keyboardInputMode="adjustResize"
+      // Performance: animate on the native thread
+      animateOnMount={false}
     >
       <BottomSheetView style={styles.contentContainer}>
         {children}
@@ -53,8 +71,12 @@ export default function CustomBottomSheet({
   );
 }
 
+const DEFAULT_SNAP_POINTS = ["50%", "90%"];
+
 const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
 });
+
+export default React.memo(CustomBottomSheet);

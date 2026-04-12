@@ -1,13 +1,13 @@
 import {
-    syncDeletedHabit,
-    syncDeletedHabitLog,
-    syncUpsertHabit,
-    syncUpsertHabitLog,
+  syncDeletedHabit,
+  syncDeletedHabitLog,
+  syncUpsertHabit,
+  syncUpsertHabitLog,
 } from "@/services/cloudSync";
 import {
-    cancelHabitReminderNotifications,
-    syncAllHabitReminderNotifications,
-    syncHabitReminderNotifications,
+  cancelHabitReminderNotifications,
+  syncAllHabitReminderNotifications,
+  syncHabitReminderNotifications,
 } from "@/services/reminderNotifications";
 import { Habit, HabitLogEntry, SyncSnapshot, ViewMode } from "@/types";
 import { getTodayString, getWeekDates } from "@/utils/dates";
@@ -17,6 +17,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useSettingsStore } from "./useSettingsStore";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HabitState {
   habits: Habit[];
@@ -48,18 +50,40 @@ interface HabitState {
   applySnapshot: (snapshot: Pick<SyncSnapshot, "habits" | "logs">) => void;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getSettingsState = () => useSettingsStore.getState();
+
+const getTarget = (habit: Habit | undefined): number =>
+  habit?.completionTargetEnabled ? habit.targetCount : 1;
+
+const makeLogKey = (habitId: string, date: string) => `${habitId}_${date}`;
+
+const isFutureDate = (date: string): boolean => {
+  const target = new Date(date);
+  const today = new Date();
+  target.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return target > today;
+};
+
 const syncIfEnabled = async (operation: () => Promise<void>) => {
-  const { cloudSyncEnabled } = useSettingsStore.getState();
+  const { cloudSyncEnabled } = getSettingsState();
   if (!cloudSyncEnabled) return;
   try {
     await operation();
   } catch (error) {
     console.error("Cloud habit sync failed", error);
-    useSettingsStore
-      .getState()
-      .setCloudSyncStatus("error", "Habit data failed to sync.");
+    getSettingsState().setCloudSyncStatus("error", "Habit data failed to sync.");
   }
 };
+
+const syncHabitAndReminders = (habit: Habit) => {
+  void syncIfEnabled(() => syncUpsertHabit(habit));
+  void syncHabitReminderNotifications(habit, getSettingsState().remindersEnabled);
+};
+
+// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useHabitStore = create<HabitState>()(
   persist(
@@ -82,16 +106,13 @@ export const useHabitStore = create<HabitState>()(
           archived: false,
         };
         set((state) => ({ habits: [...state.habits, habit] }));
-        void syncIfEnabled(() => syncUpsertHabit(habit));
-        void syncHabitReminderNotifications(
-          habit,
-          useSettingsStore.getState().remindersEnabled,
-        );
+        syncHabitAndReminders(habit);
       },
 
       updateHabit: (id, updates) => {
         const updatedAt = getNowIso();
         let updatedHabit: Habit | undefined;
+
         set((state) => ({
           habits: state.habits.map((h) => {
             if (h.id !== id) return h;
@@ -99,36 +120,41 @@ export const useHabitStore = create<HabitState>()(
             return updatedHabit;
           }),
         }));
+
         if (updatedHabit) {
-          void syncIfEnabled(() => syncUpsertHabit(updatedHabit!));
-          void syncHabitReminderNotifications(
-            updatedHabit,
-            useSettingsStore.getState().remindersEnabled,
-          );
+          syncHabitAndReminders(updatedHabit);
         }
       },
 
       deleteHabit: (id) => {
         const deletedAt = getNowIso();
+
         set((state) => {
-          const newLogs = { ...state.logs };
-          Object.keys(newLogs).forEach((key) => {
-            if (key.startsWith(`${id}_`)) delete newLogs[key];
-          });
+          const prefix = `${id}_`;
+          const newLogs: Record<string, number> = {};
+
+          // Build new logs object without deleted habit's entries
+          // More efficient than clone + delete for large log sets
+          for (const key in state.logs) {
+            if (!key.startsWith(prefix)) {
+              newLogs[key] = state.logs[key];
+            }
+          }
+
           return {
             habits: state.habits.filter((h) => h.id !== id),
             logs: newLogs,
           };
         });
-        void syncIfEnabled(async () => {
-          await syncDeletedHabit(id, deletedAt);
-        });
+
+        void syncIfEnabled(() => syncDeletedHabit(id, deletedAt));
         void cancelHabitReminderNotifications(id);
       },
 
       archiveHabit: (id) => {
         const updatedAt = getNowIso();
         let archivedHabit: Habit | undefined;
+
         set((state) => ({
           habits: state.habits.map((h) => {
             if (h.id !== id) return h;
@@ -136,18 +162,16 @@ export const useHabitStore = create<HabitState>()(
             return archivedHabit;
           }),
         }));
+
         if (archivedHabit) {
-          void syncIfEnabled(() => syncUpsertHabit(archivedHabit!));
-          void syncHabitReminderNotifications(
-            archivedHabit,
-            useSettingsStore.getState().remindersEnabled,
-          );
+          syncHabitAndReminders(archivedHabit);
         }
       },
 
       unarchiveHabit: (id) => {
         const updatedAt = getNowIso();
         let restoredHabit: Habit | undefined;
+
         set((state) => ({
           habits: state.habits.map((h) => {
             if (h.id !== id) return h;
@@ -155,108 +179,82 @@ export const useHabitStore = create<HabitState>()(
             return restoredHabit;
           }),
         }));
+
         if (restoredHabit) {
-          void syncIfEnabled(() => syncUpsertHabit(restoredHabit!));
-          void syncHabitReminderNotifications(
-            restoredHabit,
-            useSettingsStore.getState().remindersEnabled,
-          );
+          syncHabitAndReminders(restoredHabit);
         }
       },
 
       toggleHabit: (habitId, date) => {
-        // Prevent completing habits for future dates
-        const targetDate = new Date(date);
-        const today = new Date();
-        targetDate.setHours(0, 0, 0, 0);
-        today.setHours(0, 0, 0, 0);
-        if (targetDate > today) return;
+        if (isFutureDate(date)) return;
 
-        const key = `${habitId}_${date}`;
+        const key = makeLogKey(habitId, date);
         const updatedAt = getNowIso();
+
         set((state) => {
           const current = state.logs[key] || 0;
           const habit = state.habits.find((h) => h.id === habitId);
-          const target = habit?.completionTargetEnabled ? habit.targetCount : 1;
+          const target = getTarget(habit);
           const nextValue = current >= target ? 0 : current + 1;
-          return {
-            logs: {
-              ...state.logs,
-              [key]: nextValue,
-            },
-          };
+
+          return { logs: { ...state.logs, [key]: nextValue } };
         });
+
         const nextValue = get().logs[key] || 0;
-        void syncIfEnabled(async () => {
-          if (nextValue === 0) {
-            await syncDeletedHabitLog(habitId, date, updatedAt);
-            return;
-          }
-          await syncUpsertHabitLog({
-            habitId,
-            date,
-            value: nextValue,
-            updatedAt,
-          });
-        });
+
+        void syncIfEnabled(() =>
+          nextValue === 0
+            ? syncDeletedHabitLog(habitId, date, updatedAt)
+            : syncUpsertHabitLog({ habitId, date, value: nextValue, updatedAt }),
+        );
       },
 
       setTimeValue: (habitId, date, minutes) => {
-        // Prevent completing habits for future dates
-        const targetDate = new Date(date);
-        const today = new Date();
-        targetDate.setHours(0, 0, 0, 0);
-        today.setHours(0, 0, 0, 0);
-        if (targetDate > today) return;
+        if (isFutureDate(date)) return;
 
-        const key = `${habitId}_${date}`;
+        const key = makeLogKey(habitId, date);
         const updatedAt = getNowIso();
-        set((state) => ({
-          logs: { ...state.logs, [key]: minutes },
-        }));
-        void syncIfEnabled(async () => {
-          if (minutes <= 0) {
-            await syncDeletedHabitLog(habitId, date, updatedAt);
-            return;
-          }
-          await syncUpsertHabitLog({
-            habitId,
-            date,
-            value: minutes,
-            updatedAt,
-          });
-        });
+
+        set((state) => ({ logs: { ...state.logs, [key]: minutes } }));
+
+        void syncIfEnabled(() =>
+          minutes <= 0
+            ? syncDeletedHabitLog(habitId, date, updatedAt)
+            : syncUpsertHabitLog({ habitId, date, value: minutes, updatedAt }),
+        );
       },
 
-      setSelectedDate: (date) => set({ selectedDate: date }),
-      setViewMode: (mode) => set({ viewMode: mode }),
-
-      getHabitLog: (habitId, date) => {
-        return get().logs[`${habitId}_${date}`] || 0;
+      setSelectedDate: (date) => {
+        // Bail early if unchanged
+        if (get().selectedDate === date) return;
+        set({ selectedDate: date });
       },
+
+      setViewMode: (mode) => {
+        if (get().viewMode === mode) return;
+        set({ viewMode: mode });
+      },
+
+      getHabitLog: (habitId, date) =>
+        get().logs[makeLogKey(habitId, date)] || 0,
 
       getCompletionForDate: (date) => {
         const state = get();
         const activeHabits = state.habits.filter((h) => !h.archived);
         let completed = 0;
-        const total = activeHabits.length;
 
-        activeHabits.forEach((habit) => {
-          const key = `${habit.id}_${date}`;
-          const value = state.logs[key] || 0;
-          const target = habit.completionTargetEnabled ? habit.targetCount : 1;
-          if (value >= target) completed++;
-        });
+        for (const habit of activeHabits) {
+          const value = state.logs[makeLogKey(habit.id, date)] || 0;
+          if (value >= getTarget(habit)) completed++;
+        }
 
-        return { completed, total };
+        return { completed, total: activeHabits.length };
       },
 
       isHabitCompletedOnDate: (habitId, date) => {
         const state = get();
-        const key = `${habitId}_${date}`;
         const habit = state.habits.find((h) => h.id === habitId);
-        const target = habit?.completionTargetEnabled ? habit.targetCount : 1;
-        return (state.logs[key] || 0) >= target;
+        return (state.logs[makeLogKey(habitId, date)] || 0) >= getTarget(habit);
       },
 
       getWeekProgress: (habitId, referenceDate) => {
@@ -266,56 +264,59 @@ export const useHabitStore = create<HabitState>()(
 
         const baseDate = referenceDate ? new Date(referenceDate) : new Date();
         const weekDates = getWeekDates(baseDate);
-        const target = habit.completionTargetEnabled ? habit.targetCount : 1;
+        const target = getTarget(habit);
 
-        const completedDays = weekDates.reduce((count, date) => {
+        let completedDays = 0;
+        for (const date of weekDates) {
           const dateStr = date.toISOString().slice(0, 10);
-          const key = `${habitId}_${dateStr}`;
-          return (state.logs[key] || 0) >= target ? count + 1 : count;
-        }, 0);
+          if ((state.logs[makeLogKey(habitId, dateStr)] || 0) >= target) {
+            completedDays++;
+          }
+        }
 
         return { completedDays, totalDays: 7 };
       },
 
       exportLogs: () => {
-        return Object.entries(get().logs).map(([key, value]) => {
-          const [habitId, date] = key.split("_");
-          return {
-            habitId,
-            date,
-            value,
-            updatedAt: getNowIso(),
-          };
-        });
+        const logs = get().logs;
+        const now = getNowIso();
+        const entries: HabitLogEntry[] = [];
+
+        for (const key in logs) {
+          const separatorIdx = key.indexOf("_");
+          entries.push({
+            habitId: key.slice(0, separatorIdx),
+            date: key.slice(separatorIdx + 1),
+            value: logs[key],
+            updatedAt: now,
+          });
+        }
+
+        return entries;
       },
 
       applySnapshot: (snapshot) => {
-        const logs = snapshot.logs.reduce<Record<string, number>>(
-          (acc, log) => {
-            if (!log.deletedAt) {
-              acc[`${log.habitId}_${log.date}`] = log.value;
-            }
-            return acc;
-          },
-          {},
-        );
-        set({
-          habits: snapshot.habits,
-          logs,
-        });
+        const logs: Record<string, number> = {};
+
+        for (const log of snapshot.logs) {
+          if (!log.deletedAt) {
+            logs[makeLogKey(log.habitId, log.date)] = log.value;
+          }
+        }
+
+        set({ habits: snapshot.habits, logs });
+
         void syncAllHabitReminderNotifications(
           snapshot.habits,
-          useSettingsStore.getState().remindersEnabled,
+          getSettingsState().remindersEnabled,
         );
       },
     }),
     {
       name: "habit-storage",
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => {
-        return (state) => {
-          state?.setHasHydrated(true);
-        };
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
       },
       partialize: (state) => ({
         habits: state.habits,

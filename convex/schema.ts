@@ -12,6 +12,7 @@ export default defineSchema({
   }).index("by_user_id", ["userId"]),
 
   habits: defineTable({
+    id: v.optional(v.string()),
     userId: v.string(),
     habitId: v.string(),
     name: v.string(),
@@ -50,6 +51,7 @@ export default defineSchema({
     .index("by_user_habit_and_date", ["userId", "habitId", "date"]),
 
   taskLists: defineTable({
+    id: v.optional(v.string()),
     userId: v.string(),
     taskListId: v.string(),
     name: v.string(),
@@ -61,6 +63,7 @@ export default defineSchema({
     .index("by_user_and_task_list", ["userId", "taskListId"]),
 
   tasks: defineTable({
+    id: v.optional(v.string()),
     userId: v.string(),
     taskId: v.string(),
     listId: v.string(),
