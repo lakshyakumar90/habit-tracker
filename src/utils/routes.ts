@@ -1,0 +1,5 @@
+import type { Href } from 'expo-router';
+
+// Keep route literals checked here until Expo regenerates complete types for the configured src/app root.
+type HabitlyRoute = '/' | '/welcome' | '/(tabs)/today' | '/(tabs)/tasks' | '/settings' | '/search' | { pathname:'/habit/[id]'; params:{id:string} };
+export const appRoute = (route:HabitlyRoute) => route as Href;

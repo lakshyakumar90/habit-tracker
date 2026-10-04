@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
 import { palette } from '../../theme/tokens';
 export default function TabLayout(){return <Tabs screenOptions={{headerShown:false,tabBarActiveTintColor:palette.purple,tabBarInactiveTintColor:'#9894A8',tabBarStyle:{height:82,paddingTop:10,paddingBottom:19,borderTopColor:'#F0EDF5',backgroundColor:'#FFFFFF'},tabBarLabelStyle:{fontSize:11,fontWeight:'600'}}}><Tabs.Screen name="today" options={{title:'Today',tabBarIcon:()=> <TabIcon glyph="◉"/>}}/><Tabs.Screen name="habits" options={{title:'Habits',tabBarIcon:()=> <TabIcon glyph="✿"/>}}/><Tabs.Screen name="tasks" options={{title:'Tasks',tabBarIcon:()=> <TabIcon glyph="▣"/>}}/><Tabs.Screen name="stats" options={{title:'Stats',tabBarIcon:()=> <TabIcon glyph="▥"/>}}/></Tabs>;}
-function TabIcon({glyph}:{glyph:string}){const {Text}=require('react-native');return <Text style={{fontSize:21,color:palette.purple}}>{glyph}</Text>;}
+function TabIcon({glyph}:{glyph:string}){return <Text style={{fontSize:21,color:palette.purple}}>{glyph}</Text>}

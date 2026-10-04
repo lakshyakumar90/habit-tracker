@@ -39,9 +39,10 @@ async function initialize() {
     });
   }
   const prefs = await db.getFirstAsync<{ value: string }>("SELECT value FROM preferences WHERE key = 'profileName'");
-  if (!prefs) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Lakshya')");
+  if (!prefs) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Friend')");
+  const seeded = await db.getFirstAsync<{ value:string }>("SELECT value FROM preferences WHERE key = 'sampleDataSeeded'");
   const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM habits');
-  if (!row?.count) {
+  if (!seeded && !row?.count) {
     const seeds = [
       ['Drink water', '💧', '#8570EE', 'quantity', 8, 'glasses'],
       ['Workout', '🏃', '#F6C75A', 'duration', 30, 'min'],
@@ -54,5 +55,6 @@ async function initialize() {
     await db.runAsync('INSERT INTO tasks (id,title,due_date,priority,created_at) VALUES (?,?,?,?,?)', makeId(), 'Finish assignment', dateKey(), 'high', dateKey());
     await db.runAsync('INSERT INTO tasks (id,title,due_date,priority,created_at) VALUES (?,?,?,?,?)', makeId(), 'Plan the week', dateKey(), 'medium', dateKey());
   }
+  if (!seeded) await db.runAsync("INSERT INTO preferences (key,value) VALUES ('sampleDataSeeded','true')");
   return db;
 }
