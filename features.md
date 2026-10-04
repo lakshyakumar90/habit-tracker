@@ -4,7 +4,7 @@ Habitly is a local-first habit and task tracker inspired by the supplied design 
 
 ## V1 scope
 
-- First-run welcome and a short setup flow; continue with a local guest profile.
+- First-run welcome and a five-step personalization flow for name, age range, interests, discovery source, and optional motivation. Answers persist locally so an interrupted setup can resume; finish with Google/email account choices (sign-in deferred) or a working local guest profile.
 - Today dashboard with date, completion progress, active streak, scheduled habits, and today's tasks.
 - Habit list with All, Active, and Archived filters; create, edit, archive, restore, and delete habits.
 - Habit types: check-off, quantity, duration, and counter. Schedules support every day and chosen weekdays.

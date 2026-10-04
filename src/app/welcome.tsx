@@ -1,11 +1,1 @@
-import { useState } from 'react';
-import { router } from 'expo-router';
-import { Pressable, Text, TextInput, View } from 'react-native';
-import { Button, Card, Screen } from '../components/ui/Primitives';
-import { useHabitly } from '../features/app/AppProvider';
-import { palette } from '../theme/tokens';
-import { appRoute } from '../utils/routes';
-
-export default function Welcome(){const {setPreference}=useHabitly();const [step,setStep]=useState(0);const [name,setName]=useState('');const next=async()=>{if(step===0){setStep(1);return;}if(name.trim())await setPreference('profileName',name.trim());await setPreference('onboardingComplete','true');router.replace(appRoute('/(tabs)/today'));};
-return <Screen style={{flexGrow:1,justifyContent:'center',paddingHorizontal:25}}><View style={{alignItems:'center',gap:14,marginBottom:25}}><View style={{width:102,height:102,borderRadius:34,backgroundColor:palette.purpleSoft,alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:54}}>🌱</Text></View><Text style={{fontSize:40,fontWeight:'900',letterSpacing:-1.5,color:palette.ink}}>Habitly</Text><Text style={{fontSize:17,color:palette.muted,textAlign:'center',lineHeight:25}}>Small habits.{ '\n' }A better you.</Text></View><Card style={{gap:13}}><Text style={{fontSize:21,fontWeight:'800',color:palette.ink}}>{step===0?'Build a little momentum':'What should we call you?'}</Text><Text style={{fontSize:14,color:palette.muted,lineHeight:21}}>{step===0?'Make space for the things that matter, one day at a time.':'Your progress is yours. Your name makes it feel personal.'}</Text>{step===1&&<TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={palette.muted} autoCapitalize="words" style={{height:54,borderRadius:18,backgroundColor:palette.input,paddingHorizontal:16,color:palette.ink,fontSize:16}}/>}<Button label={step===0?'Get started  →':'Continue as guest  →'} onPress={()=>void next()} style={{marginTop:8}}/><Pressable accessibilityRole="button" onPress={()=>void next()}><Text style={{textAlign:'center',color:palette.muted,paddingTop:8}}>Offline by default · No account needed</Text></Pressable></Card><Text style={{textAlign:'center',fontSize:12,color:palette.muted}}>A fresh start, one small win at a time.</Text></Screen>;
-}
+export { WelcomeScreen as default } from '../features/onboarding/WelcomeScreen';
