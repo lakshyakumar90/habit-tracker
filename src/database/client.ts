@@ -58,6 +58,16 @@ async function initialize() {
       await db.execAsync(`ALTER TABLE tasks ADD COLUMN list_name TEXT NOT NULL DEFAULT 'Personal'; ALTER TABLE tasks ADD COLUMN subtasks TEXT NOT NULL DEFAULT '[]'; PRAGMA user_version = 5;`);
     });
   }
+  if ((version?.user_version ?? 0) < 6) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`ALTER TABLE tasks ADD COLUMN icon TEXT NOT NULL DEFAULT 'clipboard-text'; ALTER TABLE tasks ADD COLUMN color TEXT NOT NULL DEFAULT '#6750C7'; ALTER TABLE tasks ADD COLUMN due_time TEXT; ALTER TABLE tasks ADD COLUMN repeat_rule TEXT NOT NULL DEFAULT 'none'; ALTER TABLE tasks ADD COLUMN repeat_days TEXT NOT NULL DEFAULT '[]'; ALTER TABLE tasks ADD COLUMN reminders TEXT NOT NULL DEFAULT '[]'; ALTER TABLE tasks ADD COLUMN notification_ids TEXT NOT NULL DEFAULT '[]'; UPDATE tasks SET due_time=reminder_at, reminders=CASE WHEN reminder_at IS NULL THEN '[]' ELSE '[0]' END; PRAGMA user_version = 6;`);
+    });
+  }
+  if ((version?.user_version ?? 0) < 7) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`ALTER TABLE tasks ADD COLUMN completed_date TEXT; PRAGMA user_version = 7;`);
+    });
+  }
   const prefs = await db.getFirstAsync<{ value: string }>("SELECT value FROM preferences WHERE key = 'profileName'");
   if (!prefs) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Friend')");
   const seeded = await db.getFirstAsync<{ value:string }>("SELECT value FROM preferences WHERE key = 'sampleDataSeeded'");

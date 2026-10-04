@@ -1,3 +1,4 @@
 export type TaskSubtask = { id: string; title: string; completed: boolean };
-export type Task = { id: string; title: string; notes: string; dueDate: string; reminderAt: string | null; notificationId: string | null; priority: 'none' | 'low' | 'medium' | 'high'; completed: boolean; createdAt: string; listName: string; subtasks: TaskSubtask[] };
-export type TaskDraft = { id?:string; title:string; notes:string; dueDate:string; reminderAt:string|null; priority:Task['priority']; listName:string; subtasks?:TaskSubtask[] };
+export type TaskRepeatRule = 'none' | 'daily' | 'weekly' | 'custom';
+export type Task = { id: string; title: string; notes: string; dueDate: string; dueTime: string | null; reminderAt: string | null; notificationId: string | null; notificationIds: string[]; priority: 'none' | 'low' | 'medium' | 'high'; completed: boolean; completedDate: string | null; createdAt: string; listName: string; subtasks: TaskSubtask[]; icon: string; color: string; repeatRule: TaskRepeatRule; repeatDays: number[]; reminders: number[] };
+export type TaskDraft = { id?:string; title:string; notes:string; dueDate:string; dueTime:string|null; priority:Task['priority']; listName:string; subtasks:TaskSubtask[]; icon:string; color:string; repeatRule:TaskRepeatRule; repeatDays:number[]; reminders:number[] };

@@ -219,9 +219,9 @@ function TodayTaskRow({ task, date, last, onToggle, onMore }: { task: Task; date
     </Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${task.title}`} onPress={onMore} style={{ flex: 1, minWidth: 0, minHeight: 56, justifyContent: 'center', gap: 3 }}>
       <Text numberOfLines={1} style={{ color: palette.ink, fontSize: 15, fontWeight: '600', textDecorationLine: task.completed ? 'line-through' : 'none' }}>{task.title}</Text>
-      <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 13 }}>{dayLabel}{task.reminderAt ? `, ${formatTime(task.reminderAt)}` : ''}</Text>
+      <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 13 }}>{dayLabel}{task.dueTime ? `, ${formatTime(task.dueTime)}` : ''}</Text>
     </Pressable>
-    <MaterialCommunityIcons name="flag" size={19} color={flagColor} />
+    {task.priority !== 'none' && task.priority !== 'low' && <MaterialCommunityIcons name="flag" size={19} color={flagColor} />}
     <Pressable accessibilityRole="button" accessibilityLabel={`More actions for ${task.title}`} onPress={onMore} style={{ width: 38, height: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name="dots-horizontal" size={21} color={palette.ink} /></Pressable>
   </View>;
 }
