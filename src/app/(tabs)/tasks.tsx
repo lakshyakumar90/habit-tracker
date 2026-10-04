@@ -1,9 +1,80 @@
 import { useState } from 'react';
-import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button, Card, Header, IconButton, Screen } from '../../components/ui/Primitives';
 import { useHabitly } from '../../features/app/AppProvider';
+import { TaskForm } from '../../features/tasks/TaskForm';
+import type { Task } from '../../features/tasks/types';
 import { palette } from '../../theme/tokens';
-import { dateKey, shortDate, addDays } from '../../utils/dates';
+import { dateKey, shortDate } from '../../utils/dates';
 
-export default function Tasks(){const {tasks,toggleTask,addTask,deleteTask}=useHabitly();const [filter,setFilter]=useState('Today');const [show,setShow]=useState(false);const [title,setTitle]=useState('');const [dueDate,setDueDate]=useState(dateKey());const [priority,setPriority]=useState<'low'|'medium'|'high'>('medium');const today=dateKey();const shown=tasks.filter(t=>filter==='Completed'?t.completed:filter==='Upcoming'?!t.completed&&t.dueDate>today:!t.completed&&t.dueDate<=today);const save=async()=>{if(!title.trim())return;await addTask(title.trim(),dueDate,priority);setTitle('');setDueDate(today);setPriority('medium');setShow(false)};
-return <Screen><Header title="Tasks" subtitle="Little things, handled one at a time." right={<IconButton label="＋" accessibilityLabel="Add task" onPress={()=>setShow(true)}/>} /><View style={{flexDirection:'row',gap:7,backgroundColor:'#F0EDF6',padding:5,borderRadius:22}}>{['Today','Upcoming','Completed'].map(x=><Pressable key={x} onPress={()=>setFilter(x)} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:18,backgroundColor:x===filter?'white':'transparent'}}><Text style={{fontSize:12,fontWeight:'700',color:x===filter?palette.ink:palette.muted}}>{x}</Text></Pressable>)}</View>{shown.length?shown.map(t=><Pressable key={t.id} onLongPress={()=>Alert.alert('Delete task?',t.title,[{text:'Cancel',style:'cancel'},{text:'Delete',style:'destructive',onPress:()=>void deleteTask(t.id)}])}><Card style={{padding:15}}><View style={{flexDirection:'row',alignItems:'center',gap:12}}><Pressable accessibilityRole="checkbox" accessibilityState={{checked:t.completed}} accessibilityLabel={`${t.completed?'Reopen':'Complete'} ${t.title}`} onPress={()=>void toggleTask(t)} style={{width:27,height:27,borderRadius:9,borderWidth:2,borderColor:t.completed?palette.purple:'#D9D5E3',backgroundColor:t.completed?palette.purple:'white',alignItems:'center',justifyContent:'center'}}><Text style={{color:'white',fontWeight:'800'}}>{t.completed?'✓':''}</Text></Pressable><View style={{flex:1}}><Text style={{fontSize:15,fontWeight:'700',color:palette.ink,textDecorationLine:t.completed?'line-through':'none'}}>{t.title}</Text><Text style={{fontSize:12,color:palette.muted,marginTop:4}}>{t.dueDate===today?'Today':shortDate(t.dueDate)}</Text></View><View style={{width:9,height:9,borderRadius:5,backgroundColor:t.priority==='high'?palette.danger:t.priority==='medium'?palette.yellow:'#B9B5C4'}}/></View><Text style={{fontSize:10,color:palette.muted,alignSelf:'flex-end',marginTop:6}}>Hold to delete</Text></Card></Pressable>):<Card style={{alignItems:'center',gap:8,paddingVertical:30}}><Text style={{fontSize:34}}>✨</Text><Text style={{fontWeight:'800',fontSize:17,color:palette.ink}}>Nothing on this list</Text><Text style={{color:palette.muted}}>Enjoy a little breathing room.</Text></Card>}<Text style={{color:palette.muted,fontSize:12,textAlign:'center'}}>Tasks stay on this device and are available offline.</Text><Modal visible={show} animationType="slide" transparent onRequestClose={()=>setShow(false)}><View style={{flex:1,justifyContent:'flex-end',backgroundColor:'#18142655'}}><View style={{backgroundColor:palette.canvas,padding:23,borderTopLeftRadius:27,borderTopRightRadius:27,gap:14}}><Text style={{fontSize:23,fontWeight:'800',color:palette.ink}}>Add a task</Text><TextInput value={title} onChangeText={setTitle} placeholder="What needs doing?" autoFocus maxLength={120} style={{height:52,backgroundColor:'white',borderRadius:15,paddingHorizontal:14,color:palette.ink}}/><Text style={{fontWeight:'700',color:palette.ink}}>Due</Text><View style={{flexDirection:'row',gap:7}}>{[['Today',today],['Tomorrow',dateKey(addDays(new Date(),1))],['In 7 days',dateKey(addDays(new Date(),7))]].map(([label,key])=><Pressable key={key} onPress={()=>setDueDate(key)} style={{flex:1,paddingVertical:10,alignItems:'center',borderRadius:16,backgroundColor:dueDate===key?palette.purpleSoft:'#F7F5FA'}}><Text style={{fontSize:12,color:palette.ink}}>{label}</Text></Pressable>)}</View><Text style={{fontWeight:'700',color:palette.ink}}>Priority</Text><View style={{flexDirection:'row',gap:7}}>{(['low','medium','high'] as const).map(p=><Pressable key={p} onPress={()=>setPriority(p)} style={{flex:1,paddingVertical:10,alignItems:'center',borderRadius:16,backgroundColor:priority===p?palette.purpleSoft:'#F7F5FA'}}><Text style={{fontSize:12,color:palette.ink}}>{p[0].toUpperCase()+p.slice(1)}</Text></Pressable>)}</View><View style={{flexDirection:'row',gap:10}}><Button label="Cancel" secondary onPress={()=>setShow(false)} style={{flex:1}}/><Button label="Add task" onPress={()=>void save()} style={{flex:1}}/></View></View></View></Modal></Screen>}
+type TaskFilter = 'Today' | 'Upcoming' | 'Completed';
+
+export default function Tasks() {
+  const { tasks, toggleTask, deleteTask } = useHabitly();
+  const [filter, setFilter] = useState<TaskFilter>('Today');
+  const [showForm, setShowForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task>();
+  const today = dateKey();
+  const visibleTasks = tasks.filter(task => {
+    if (filter === 'Completed') return task.completed;
+    if (filter === 'Upcoming') return !task.completed && task.dueDate > today;
+    return !task.completed && task.dueDate <= today;
+  });
+  const openCreate = () => { setEditingTask(undefined); setShowForm(true); };
+  const closeForm = () => { setShowForm(false); setEditingTask(undefined); };
+  const openActions = (task: Task) => Alert.alert(task.title, 'Choose an action', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Edit task', onPress: () => { setEditingTask(task); setShowForm(true); } },
+    { text: 'Delete task', style: 'destructive', onPress: () => Alert.alert('Delete task?', 'This also cancels its reminder.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void deleteTask(task.id) },
+    ]) },
+  ]);
+
+  return (
+    <Screen safeBottom={false}>
+      <Header title="Tasks" subtitle="Keep the next small step in view." right={<IconButton label="plus" accessibilityLabel="Add task" onPress={openCreate} />} />
+      <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 14, backgroundColor: palette.surfaceSoft }}>
+        {(['Today', 'Upcoming', 'Completed'] as const).map(value => {
+          const selected = filter === value;
+          return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setFilter(value)} style={{ flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: selected ? palette.card : 'transparent' }}><Text style={{ fontSize: 13, fontWeight: '600', color: selected ? palette.ink : palette.muted }}>{value}</Text></Pressable>;
+        })}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 1 }}>
+        <Text style={{ color: palette.ink, fontSize: 16, fontWeight: '700' }}>{filter === 'Today' ? 'Due today' : filter}</Text>
+        <Text style={{ color: palette.muted, fontSize: 12 }}>{visibleTasks.length} {visibleTasks.length === 1 ? 'task' : 'tasks'}</Text>
+      </View>
+      {visibleTasks.length ? visibleTasks.map(task => <TaskRow key={task.id} task={task} today={today} onToggle={() => void toggleTask(task)} onMore={() => openActions(task)} />) : (
+        <View style={{ alignItems: 'center', paddingVertical: 32, gap: 7 }}>
+          <MaterialCommunityIcons name={filter === 'Completed' ? 'check-circle-outline' : 'playlist-check'} size={35} color={palette.purple} />
+          <Text style={{ fontSize: 16, fontWeight: '700', color: palette.ink }}>{filter === 'Completed' ? 'Nothing completed yet' : 'A clear list for now'}</Text>
+          <Text style={{ fontSize: 13, color: palette.muted, textAlign: 'center' }}>{filter === 'Upcoming' ? 'Tasks with a future due date will show here.' : 'Add a task whenever something needs a place.'}</Text>
+          {filter !== 'Completed' && <Button label="Add a task" secondary onPress={openCreate} style={{ marginTop: 6 }} />}
+        </View>
+      )}
+      {showForm && <TaskForm key={editingTask?.id ?? 'new'} task={editingTask} onClose={closeForm} />}
+    </Screen>
+  );
+}
+
+function TaskRow({ task, today, onToggle, onMore }: { task: Task; today: string; onToggle: () => void; onMore: () => void }) {
+  const overdue = !task.completed && task.dueDate < today;
+  const dueLabel = task.dueDate === today ? 'Today' : `${overdue ? 'Overdue · ' : ''}${shortDate(task.dueDate)}`;
+  const priorityColor = task.priority === 'high' ? palette.danger : task.priority === 'medium' ? palette.yellow : palette.muted;
+  return <Card style={{ paddingVertical: 13, paddingHorizontal: 12 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: task.completed }} accessibilityLabel={`${task.completed ? 'Reopen' : 'Complete'} ${task.title}`} onPress={onToggle} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name={task.completed ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} size={25} color={task.completed ? palette.purple : palette.muted} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${task.title}`} onPress={onMore} style={{ flex: 1, minHeight: 48, justifyContent: 'center', gap: 5 }}>
+        <Text numberOfLines={1} style={{ color: palette.ink, fontSize: 15, fontWeight: '600', textDecorationLine: task.completed ? 'line-through' : 'none' }}>{task.title}</Text>
+        {!!task.notes && <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{task.notes}</Text>}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+          <Text style={{ color: overdue ? palette.danger : palette.muted, fontSize: 12 }}>{dueLabel}</Text>
+          <Text style={{ color: priorityColor, fontSize: 12, fontWeight: '600' }}>· {task.priority}</Text>
+          {task.reminderAt && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><MaterialCommunityIcons name={task.notificationId ? 'bell-check-outline' : 'bell-alert-outline'} size={14} color={task.notificationId ? palette.purple : palette.muted} /><Text style={{ fontSize: 11, color: task.notificationId ? palette.purple : palette.muted }}>{task.reminderAt}</Text></View>}
+        </View>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`More actions for ${task.title}`} onPress={onMore} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name="dots-vertical" size={21} color={palette.muted} /></Pressable>
+    </View>
+  </Card>;
+}

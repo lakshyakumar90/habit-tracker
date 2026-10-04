@@ -38,6 +38,11 @@ async function initialize() {
       `);
     });
   }
+  if ((version?.user_version ?? 0) < 2) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync('ALTER TABLE tasks ADD COLUMN reminder_at TEXT; ALTER TABLE tasks ADD COLUMN notification_id TEXT; PRAGMA user_version = 2;');
+    });
+  }
   const prefs = await db.getFirstAsync<{ value: string }>("SELECT value FROM preferences WHERE key = 'profileName'");
   if (!prefs) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Friend')");
   const seeded = await db.getFirstAsync<{ value:string }>("SELECT value FROM preferences WHERE key = 'sampleDataSeeded'");

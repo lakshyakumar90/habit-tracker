@@ -26,6 +26,12 @@
     },
     "plugins": [
       [
+        "expo-notifications",
+        {
+          "defaultChannel": "task-reminders"
+        }
+      ],
+      [
         "expo-router",
         {
           "root": "src/app"
