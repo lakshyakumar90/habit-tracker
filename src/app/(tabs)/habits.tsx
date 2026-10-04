@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -118,7 +117,7 @@ export default function Habits() {
 
 function HabitsBackdrop() {
   return <View pointerEvents="none" style={absoluteFill}>
-    <LinearGradient colors={[palette.canvas, palette.card, palette.canvas]} locations={[0, 0.52, 1]} style={absoluteFill} />
+    <View style={[absoluteFill, { backgroundColor: palette.canvas }]} />
     <View style={{ position: 'absolute', top: -122, right: -112, width: 300, height: 300, borderRadius: 155, backgroundColor: alpha(palette.purple, 0.09) }} />
     <View style={{ position: 'absolute', top: 75, left: 90, width: 200, height: 200, borderRadius: 105, backgroundColor: alpha(palette.yellow, 0.075) }} />
     <View style={{ position: 'absolute', bottom: -164, right: -100, width: 340, height: 340, borderRadius: 180, backgroundColor: alpha(palette.purple, 0.07) }} />

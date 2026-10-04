@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import type { Habit, HabitDraft, HabitDifficulty, HabitType } from './types';
@@ -193,7 +192,7 @@ export function HabitForm({ visible, onClose, habit }: { visible: boolean; onClo
 
 function FormBackdrop() {
   return <View pointerEvents="none" style={absoluteFill}>
-    <LinearGradient colors={[palette.canvas, palette.card, palette.canvas]} locations={[0, 0.48, 1]} style={absoluteFill} />
+    <View style={[absoluteFill, { backgroundColor: palette.canvas }]} />
     <View style={{ position: 'absolute', top: -175, right: -150, width: 370, height: 370, borderRadius: 190, backgroundColor: alpha(palette.purple, 0.09) }} />
     <View style={{ position: 'absolute', top: 165, right: -165, width: 300, height: 300, borderRadius: 155, backgroundColor: alpha(palette.yellow, 0.11) }} />
     <View style={{ position: 'absolute', bottom: -175, left: -132, width: 330, height: 330, borderRadius: 170, backgroundColor: alpha(palette.purple, 0.075) }} />

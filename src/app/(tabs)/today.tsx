@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -163,7 +162,7 @@ export default function Today() {
 
 function TodayBackdrop() {
   return <View pointerEvents="none" style={{ ...absoluteFill }}>
-    <LinearGradient colors={[palette.canvas, palette.card, palette.canvas]} locations={[0, 0.52, 1]} style={{ ...absoluteFill }} />
+    <View style={[absoluteFill, { backgroundColor: palette.canvas }]} />
     <View style={{ position: 'absolute', top: -112, right: -102, width: 310, height: 310, borderRadius: 160, backgroundColor: alpha(palette.purple, 0.09) }} />
     <View style={{ position: 'absolute', top: 126, right: -154, width: 270, height: 270, borderRadius: 150, backgroundColor: alpha(palette.yellow, 0.1) }} />
     <View style={{ position: 'absolute', bottom: -185, left: -122, width: 380, height: 380, borderRadius: 200, backgroundColor: alpha(palette.purple, 0.075) }} />

@@ -3,7 +3,6 @@ import { Pressable, Text, View, type ViewStyle } from 'react-native';
 import type { ReactNode } from 'react';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -283,7 +282,7 @@ function InsightsView({ habit, metrics, trends, range, onRange }: { habit: Habit
 
 function DetailBackdrop() {
   return <View pointerEvents="none" style={absoluteFill}>
-    <LinearGradient colors={[palette.canvas, palette.card, palette.canvas]} locations={[0, 0.5, 1]} style={absoluteFill} />
+    <View style={[absoluteFill, { backgroundColor: palette.canvas }]} />
     <View style={{ position: 'absolute', top: -145, right: -140, width: 330, height: 330, borderRadius: 170, backgroundColor: alpha(palette.purple, 0.08) }} />
     <View style={{ position: 'absolute', top: 180, right: -190, width: 310, height: 310, borderRadius: 160, backgroundColor: alpha(palette.yellow, 0.08) }} />
     <View style={{ position: 'absolute', bottom: -170, left: -125, width: 320, height: 320, borderRadius: 165, backgroundColor: alpha(palette.purple, 0.07) }} />

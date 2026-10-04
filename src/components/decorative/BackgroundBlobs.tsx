@@ -1,5 +1,4 @@
 import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboardingTheme } from '../../features/onboarding/theme';
 
 type Props = { variant?: 'welcome' | 'onboarding' | 'celebration' };
@@ -18,14 +17,13 @@ export function BackgroundBlobs({ variant = 'onboarding' }: Props) {
     yellow: ['#FFE68E99', '#FFF4CF00'] as const,
   };
 
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    <LinearGradient colors={dark ? ['#17151D', theme.canvas, '#191720'] : ['#F6F3FF', theme.surface, '#FBFAFF']} style={StyleSheet.absoluteFill} />
-    <LinearGradient colors={blobs.violet} style={[styles.blob, styles.topRight]} />
-    <LinearGradient colors={blobs.yellow} style={[styles.blob, styles.rightWarm]} />
-    <LinearGradient colors={blobs.lavender} style={[styles.blob, styles.leftMid]} />
-    <LinearGradient colors={blobs.lavender} style={[styles.blob, variant === 'welcome' ? styles.welcomeBottom : styles.bottomWash]} />
-    <LinearGradient colors={blobs.yellow} style={[styles.blob, styles.bottomLeftWarm]} />
-    <LinearGradient colors={blobs.yellow} style={[styles.blob, styles.bottomRightWarm]} />
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.canvas }]}>
+    <View style={[styles.blob, styles.topRight, { backgroundColor: blobs.violet[0] }]} />
+    <View style={[styles.blob, styles.rightWarm, { backgroundColor: blobs.yellow[0] }]} />
+    <View style={[styles.blob, styles.leftMid, { backgroundColor: blobs.lavender[0] }]} />
+    <View style={[styles.blob, variant === 'welcome' ? styles.welcomeBottom : styles.bottomWash, { backgroundColor: blobs.lavender[0] }]} />
+    <View style={[styles.blob, styles.bottomLeftWarm, { backgroundColor: blobs.yellow[0] }]} />
+    <View style={[styles.blob, styles.bottomRightWarm, { backgroundColor: blobs.yellow[0] }]} />
   </View>;
 }
 
