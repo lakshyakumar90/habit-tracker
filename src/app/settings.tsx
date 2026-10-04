@@ -27,7 +27,21 @@ export default function Settings() {
     <Card><Text style={{fontWeight:'800',color:palette.ink}}>Guest profile</Text><Text style={{fontSize:13,color:palette.muted,lineHeight:20,marginTop:6}}>Your habits and tasks are saved offline on this device. Account sign-in and cloud backup need service credentials.</Text></Card>
     <Text style={{textAlign:'center',color:palette.muted,fontSize:12}}>Habitly · v1.0.0</Text>
     <Modal visible={editingName} animationType="slide" transparent statusBarTranslucent onRequestClose={()=>setEditingName(false)}><View style={scrim()}><View style={sheet()}><Text style={{fontSize:22,fontWeight:'800',color:palette.ink}}>Your name</Text><TextInput autoFocus value={name} onChangeText={setName} maxLength={50} placeholder="Name" placeholderTextColor={palette.muted} style={input()}/><View style={{flexDirection:'row',gap:10}}><Button label="Cancel" secondary onPress={()=>setEditingName(false)} style={{flex:1}}/><Button label="Save" onPress={()=>void saveName()} style={{flex:1}}/></View></View></View></Modal>
-    <Modal visible={!!panel} animationType="slide" transparent statusBarTranslucent onRequestClose={()=>setPanel(null)}><View style={scrim()}><View style={sheet()}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{fontSize:21,fontWeight:'800',color:palette.ink}}>{panelTitle}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={()=>setPanel(null)} style={{padding:8}}><MaterialCommunityIcons name="close" size={23} color={palette.muted}/></Pressable></View><Text style={{fontSize:14,lineHeight:21,color:palette.muted}}>{panelCopy}</Text>{panel==='export'&&<><Button label="Share JSON file" onPress={()=>void shareData()}/><Button label="Copy JSON" secondary onPress={()=>void copyData()}/></>}{panel==='notifications'&&<Button label="Enable notifications" onPress={()=>void requestReminderPermission().then(ok=>setMessage(ok?'Notifications are enabled.':'Notification permission was not granted.'))}/>} {!!message&&<Text accessibilityRole="alert" style={{fontSize:13,color:palette.purple}}>{message}</Text>}<Button label="Done" secondary onPress={()=>setPanel(null)}/></View></View></Modal>
+    <Modal visible={!!panel} animationType="slide" transparent statusBarTranslucent onRequestClose={()=>setPanel(null)}>
+      <View style={scrim()}>
+        <View style={sheet()}>
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
+            <Text style={{fontSize:21,fontWeight:'800',color:palette.ink}}>{panelTitle}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={()=>setPanel(null)} style={{padding:8}}><MaterialCommunityIcons name="close" size={23} color={palette.muted}/></Pressable>
+          </View>
+          <Text style={{fontSize:14,lineHeight:21,color:palette.muted}}>{panelCopy}</Text>
+          {panel==='export'&&<><Button label="Share JSON file" onPress={()=>void shareData()}/><Button label="Copy JSON" secondary onPress={()=>void copyData()}/></>}
+          {panel==='notifications'&&<Button label="Enable notifications" onPress={()=>void requestReminderPermission().then(ok=>setMessage(ok?'Notifications are enabled.':'Notification permission was not granted.'))}/>}
+          {!!message&&<Text accessibilityRole="alert" style={{fontSize:13,color:palette.purple}}>{message}</Text>}
+          <Button label="Done" secondary onPress={()=>setPanel(null)}/>
+        </View>
+      </View>
+    </Modal>
   </Screen>;
 }
 function SettingRow({icon,title,value,onPress}:{icon:string;title:string;value?:string;onPress:()=>void}){return <Pressable accessibilityRole="button" onPress={onPress} style={{minHeight:52,flexDirection:'row',alignItems:'center',paddingVertical:11,gap:11}}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color={palette.purple}/><Text style={{flex:1,color:palette.ink,fontSize:14,fontWeight:'600'}}>{title}</Text>{value&&<Text style={{color:palette.muted,fontSize:12}}>{value}</Text>}<MaterialCommunityIcons name="chevron-right" size={20} color={palette.muted}/></Pressable>}
