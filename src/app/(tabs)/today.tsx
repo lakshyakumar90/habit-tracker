@@ -12,6 +12,7 @@ import type { Task } from '../../features/tasks/types';
 import { useHabitly } from '../../features/app/AppProvider';
 import { calculateStreak } from '../../features/habits/domain';
 import type { Habit } from '../../features/habits/types';
+import { CelebrationModal } from '../../features/habits/CelebrationModal';
 import { palette } from '../../theme/tokens';
 import { addDays, dateKey, shortDate } from '../../utils/dates';
 import { appRoute } from '../../utils/routes';
@@ -28,6 +29,7 @@ export default function Today() {
   const [editingTask, setEditingTask] = useState<Task>();
   const [actionTask, setActionTask] = useState<Task>();
   const [confirmDelete, setConfirmDelete] = useState<Task>();
+  const [celebration, setCelebration] = useState<{ habit: Habit; streak: number }>();
   const focusProgress = useSharedValue(0);
 
   useFocusEffect(useCallback(() => {
@@ -60,6 +62,16 @@ export default function Today() {
   const openCreateTask = () => { setEditingTask(undefined); setShowTaskForm(true); };
   const closeTaskForm = () => { setShowTaskForm(false); setEditingTask(undefined); };
   const openTaskActions = (task: Task) => setActionTask(task);
+  const toggleHabit = async (habit: Habit) => {
+    const entry = entries.find(item => item.habitId === habit.id && item.date === selectedDate);
+    const isCompleting = !entry?.completed;
+    void Haptics.selectionAsync();
+    await setEntry(habit, entry?.completed ? 0 : habit.target, selectedDate);
+    if (isCompleting && selectedDate === today) {
+      const updatedEntries = [...entries.filter(item => item.id !== entry?.id), { id: entry?.id ?? `pending-${habit.id}-${today}`, habitId: habit.id, date: today, value: habit.target, completed: true }];
+      setCelebration({ habit, streak: calculateStreak(habit, updatedEntries) });
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.canvas, overflow: 'hidden' }}>
@@ -74,7 +86,7 @@ export default function Today() {
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <HeaderAction icon="magnify" label="Search" onPress={() => router.push(appRoute('/search'))} />
-              <HeaderAction icon="account-outline" label="Profile and settings" onPress={() => router.push(appRoute('/settings'))} />
+              <HeaderAction icon="account-outline" label="Profile" onPress={() => router.push(appRoute('/(tabs)/profile'))} />
             </View>
           </View>
 
@@ -107,11 +119,7 @@ export default function Today() {
           <SectionHeading title="Today’s habits" action="See all" onPress={() => router.push('/(tabs)/habits')} />
           {activeHabits.length ? (
             <View style={listCardStyle()}>
-              {activeHabits.map((habit, index) => <TodayHabitRow key={habit.id} habit={habit} date={selectedDate} last={index === activeHabits.length - 1} onToggle={() => {
-                const entry = entries.find(item => item.habitId === habit.id && item.date === selectedDate);
-                void Haptics.selectionAsync();
-                void setEntry(habit, entry?.completed ? 0 : habit.target, selectedDate);
-              }} onOpen={() => router.push(appRoute({ pathname: '/habit/[id]', params: { id: habit.id } }))} />)}
+              {activeHabits.map((habit, index) => <TodayHabitRow key={habit.id} habit={habit} date={selectedDate} last={index === activeHabits.length - 1} onToggle={() => void toggleHabit(habit)} onOpen={() => router.push(appRoute({ pathname: '/habit/[id]', params: { id: habit.id } }))} />)}
             </View>
           ) : (
             <View style={cardStyle({ padding: 18, alignItems: 'center', gap: 7 })}>
@@ -148,6 +156,7 @@ export default function Today() {
       <ActionSheet visible={!!confirmDelete} title="Delete this task?" subtitle="Its scheduled reminder will be cancelled." onClose={() => setConfirmDelete(undefined)} actions={[
         { label: 'Delete task', icon: 'delete-outline', destructive: true, onPress: () => { if (confirmDelete) void deleteTask(confirmDelete.id); setConfirmDelete(undefined); } },
       ]} />
+      <CelebrationModal habit={celebration?.habit} streak={celebration?.streak ?? 0} onClose={() => setCelebration(undefined)} onViewStreak={() => { setCelebration(undefined); router.push('/achievements/streak'); }} />
     </View>
   );
 }

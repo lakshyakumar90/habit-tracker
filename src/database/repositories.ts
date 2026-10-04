@@ -56,6 +56,15 @@ export const preferencesRepository = {
   async set(key:string,value:string) { const db=await getDatabase(); await db.runAsync('INSERT INTO preferences (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,value); },
 };
 
+export async function clearLocalData() {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('DELETE FROM tasks');
+    await db.runAsync('DELETE FROM habits');
+    await db.runAsync("DELETE FROM preferences WHERE key != 'sampleDataSeeded'");
+  });
+}
+
 export async function exportLocalData() {
   return { exportedAt:new Date().toISOString(), habits:await habitsRepository.all(), habitEntries:await habitsRepository.entries(), tasks:await tasksRepository.all(), preferences:{ profileName:await preferencesRepository.get('profileName','Friend'), theme:await preferencesRepository.get('theme','system'), accent:await preferencesRepository.get('accent','#8570EE') } };
 }

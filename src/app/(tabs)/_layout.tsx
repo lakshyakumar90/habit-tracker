@@ -12,6 +12,7 @@ const icons = {
   habits: { active: 'sprout', inactive: 'sprout-outline' },
   tasks: { active: 'checkbox-marked-circle', inactive: 'checkbox-blank-circle-outline' },
   stats: { active: 'chart-box', inactive: 'chart-box-outline' },
+  profile: { active: 'account', inactive: 'account-outline' },
 } as const;
 
 export default function TabLayout() {

@@ -53,6 +53,25 @@ export async function sendTestReminder() {
   });
 }
 
+/** Schedule a repeating local notification and return its id for later removal. */
+export async function scheduleDailyNudge(title: string, body: string, time: string) {
+  if (Platform.OS === 'web') throw new Error('Scheduled reminders are available in the Android and iOS app.');
+  if (!await requestReminderPermission()) throw new Error('Allow notifications in system settings to schedule this reminder.');
+  const [hour, minute] = time.split(':').map(Number);
+  return Notifications.scheduleNotificationAsync({
+    content: { title, body, sound: true, data: { entityType: 'daily-nudge' } },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, ...(Platform.OS === 'android' ? { channelId: 'habitly-reminders' } : {}) },
+  });
+}
+
+export async function cancelReminder(id: string) {
+  if (Platform.OS !== 'web') await Notifications.cancelScheduledNotificationAsync(id);
+}
+
+export async function cancelAllReminders() {
+  if (Platform.OS !== 'web') await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
 export async function cancelEntityReminders(taskId: string) {
   if (Platform.OS === 'web') return;
   const pending = await Notifications.getAllScheduledNotificationsAsync();
