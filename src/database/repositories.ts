@@ -1,13 +1,13 @@
 import { getDatabase, makeId } from './client';
 import type { Habit, HabitDraft, HabitEntry } from '../features/habits/types';
-import type { Task } from '../features/tasks/types';
+import type { Task, TaskSubtask } from '../features/tasks/types';
 
 type HabitRow = { id: string; name: string; description: string; icon: string; color: string; type: Habit['type']; difficulty: Habit['difficulty']; target: number; unit: string; schedule: string; reminder_at:string|null; notification_ids:string; archived: number; created_at: string };
 type EntryRow = { id: string; habit_id: string; entry_date: string; value: number; completed: number };
-type TaskRow = { id: string; title: string; notes: string; due_date: string; reminder_at: string|null; notification_id: string|null; priority: Task['priority']; completed: number; created_at: string };
+type TaskRow = { id: string; title: string; notes: string; due_date: string; reminder_at: string|null; notification_id: string|null; priority: Task['priority']; completed: number; created_at: string; list_name: string; subtasks: string };
 const habitFromRow = (r: HabitRow): Habit => ({ id:r.id, name:r.name, description:r.description, icon:r.icon, color:r.color, type:r.type, difficulty:r.difficulty, target:r.target, unit:r.unit, schedule:JSON.parse(r.schedule), reminderAt:r.reminder_at, notificationIds:JSON.parse(r.notification_ids||'[]'), archived:!!r.archived, createdAt:r.created_at });
 const entryFromRow = (r: EntryRow): HabitEntry => ({ id:r.id, habitId:r.habit_id, date:r.entry_date, value:r.value, completed:!!r.completed });
-const taskFromRow = (r: TaskRow): Task => ({ id:r.id, title:r.title, notes:r.notes, dueDate:r.due_date, reminderAt:r.reminder_at, notificationId:r.notification_id, priority:r.priority, completed:!!r.completed, createdAt:r.created_at });
+const taskFromRow = (r: TaskRow): Task => ({ id:r.id, title:r.title, notes:r.notes, dueDate:r.due_date, reminderAt:r.reminder_at, notificationId:r.notification_id, priority:r.priority, completed:!!r.completed, createdAt:r.created_at, listName:r.list_name??'Personal', subtasks:JSON.parse(r.subtasks||'[]') });
 
 export const habitsRepository = {
   async all() { const db=await getDatabase(); return (await db.getAllAsync<HabitRow>('SELECT * FROM habits ORDER BY archived, created_at')).map(habitFromRow); },
@@ -22,7 +22,8 @@ export const habitsRepository = {
 
 export const tasksRepository = {
   async all() { const db=await getDatabase(); return (await db.getAllAsync<TaskRow>('SELECT * FROM tasks ORDER BY due_date, completed, created_at')).map(taskFromRow); },
-  async save(draft:{title:string;notes:string;dueDate:string;priority:Task['priority'];reminderAt:string|null;id?:string}) { const db=await getDatabase(); const taskId=draft.id??makeId(); if(draft.id) await db.runAsync('UPDATE tasks SET title=?,notes=?,due_date=?,priority=?,reminder_at=?,notification_id=NULL WHERE id=?',draft.title,draft.notes,draft.dueDate,draft.priority,draft.reminderAt,taskId); else await db.runAsync('INSERT INTO tasks (id,title,notes,due_date,priority,reminder_at,created_at) VALUES (?,?,?,?,?,?,?)',taskId,draft.title,draft.notes,draft.dueDate,draft.priority,draft.reminderAt,new Date().toISOString()); return taskId; },
+  async save(draft:{title:string;notes:string;dueDate:string;priority:Task['priority'];reminderAt:string|null;id?:string;listName?:string;subtasks?:TaskSubtask[]}) { const db=await getDatabase(); const taskId=draft.id??makeId(); const listName=draft.listName??'Personal'; const subtasks=JSON.stringify(draft.subtasks??[]); if(draft.id) await db.runAsync('UPDATE tasks SET title=?,notes=?,due_date=?,priority=?,reminder_at=?,notification_id=NULL,list_name=?,subtasks=? WHERE id=?',draft.title,draft.notes,draft.dueDate,draft.priority,draft.reminderAt,listName,subtasks,taskId); else await db.runAsync('INSERT INTO tasks (id,title,notes,due_date,priority,reminder_at,created_at,list_name,subtasks) VALUES (?,?,?,?,?,?,?,?,?)',taskId,draft.title,draft.notes,draft.dueDate,draft.priority,draft.reminderAt,new Date().toISOString(),listName,subtasks); return taskId; },
+  async setSubtasks(id:string,subtasks:TaskSubtask[]) { const db=await getDatabase(); await db.runAsync('UPDATE tasks SET subtasks=? WHERE id=?',JSON.stringify(subtasks),id); },
   async setNotificationId(id:string,notificationId:string|null) { const db=await getDatabase(); await db.runAsync('UPDATE tasks SET notification_id=? WHERE id=?',notificationId,id); },
   async toggle(task:Task) { const db=await getDatabase(); await db.runAsync('UPDATE tasks SET completed=?,notification_id=NULL WHERE id=?',Number(!task.completed),task.id); },
   async remove(id:string) { const db=await getDatabase(); await db.runAsync('DELETE FROM tasks WHERE id=?',id); },

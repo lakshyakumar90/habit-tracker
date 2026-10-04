@@ -1,78 +1,83 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, Header, IconButton, Screen } from '../../components/ui/Primitives';
+import { router } from 'expo-router';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ActionSheet } from '../../components/ui/ActionSheet';
+import { Button, IconButton, Screen } from '../../components/ui/Primitives';
 import { useHabitly } from '../../features/app/AppProvider';
 import { TaskForm } from '../../features/tasks/TaskForm';
 import type { Task } from '../../features/tasks/types';
 import { palette } from '../../theme/tokens';
+import { appRoute } from '../../utils/routes';
 import { dateKey, shortDate } from '../../utils/dates';
-import { ActionSheet } from '../../components/ui/ActionSheet';
 
 type TaskFilter = 'Today' | 'Upcoming' | 'Completed';
+const FILTERS: TaskFilter[] = ['Today', 'Upcoming', 'Completed'];
 
 export default function Tasks() {
   const { tasks, toggleTask, deleteTask } = useHabitly();
   const [filter, setFilter] = useState<TaskFilter>('Today');
   const [showForm, setShowForm] = useState(false);
+  const [actionTask, setActionTask] = useState<Task>();
   const [editingTask, setEditingTask] = useState<Task>();
-  const [actionTask,setActionTask]=useState<Task>();
-  const [confirmDelete,setConfirmDelete]=useState<Task>();
+  const [confirmDelete, setConfirmDelete] = useState<Task>();
   const today = dateKey();
-  const visibleTasks = tasks.filter(task => {
+  const visibleTasks = useMemo(() => tasks.filter(task => {
     if (filter === 'Completed') return task.completed;
     if (filter === 'Upcoming') return !task.completed && task.dueDate > today;
-    return !task.completed && task.dueDate <= today;
-  });
-  const openCreate = () => { setEditingTask(undefined); setShowForm(true); };
-  const closeForm = () => { setShowForm(false); setEditingTask(undefined); };
-  const openActions = (task: Task) => setActionTask(task);
-
-  return (
-    <Screen safeBottom={false}>
-      <Header title="Tasks" subtitle="Keep the next small step in view." right={<IconButton icon="plus" accessibilityLabel="Add task" onPress={openCreate} />} />
-      <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 14, backgroundColor: palette.surfaceSoft }}>
-        {(['Today', 'Upcoming', 'Completed'] as const).map(value => {
-          const selected = filter === value;
-          return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setFilter(value)} style={{ flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: selected ? palette.card : 'transparent' }}><Text style={{ fontSize: 13, fontWeight: '600', color: selected ? palette.ink : palette.muted }}>{value}</Text></Pressable>;
-        })}
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 1 }}>
-        <Text style={{ color: palette.ink, fontSize: 16, fontWeight: '700' }}>{filter === 'Today' ? 'Due today' : filter}</Text>
-        <Text style={{ color: palette.muted, fontSize: 12 }}>{visibleTasks.length} {visibleTasks.length === 1 ? 'task' : 'tasks'}</Text>
-      </View>
-      {visibleTasks.length ? visibleTasks.map(task => <TaskRow key={task.id} task={task} today={today} onToggle={() => void toggleTask(task)} onMore={() => openActions(task)} />) : (
-        <View style={{ alignItems: 'center', paddingVertical: 32, gap: 7 }}>
-          <MaterialCommunityIcons name={filter === 'Completed' ? 'check-circle-outline' : 'playlist-check'} size={35} color={palette.purple} />
-          <Text style={{ fontSize: 16, fontWeight: '700', color: palette.ink }}>{filter === 'Completed' ? 'Nothing completed yet' : 'A clear list for now'}</Text>
-          <Text style={{ fontSize: 13, color: palette.muted, textAlign: 'center' }}>{filter === 'Upcoming' ? 'Tasks with a future due date will show here.' : 'Add a task whenever something needs a place.'}</Text>
-          {filter !== 'Completed' && <Button label="Add a task" secondary onPress={openCreate} style={{ marginTop: 6 }} />}
-        </View>
-      )}
-      {showForm && <TaskForm key={editingTask?.id ?? 'new'} task={editingTask} onClose={closeForm} />}
-      <ActionSheet visible={!!actionTask} title={actionTask?.title??'Task'} subtitle="Choose an action" onClose={()=>setActionTask(undefined)} actions={[{label:'Edit task',icon:'pencil-outline',onPress:()=>{setEditingTask(actionTask);setShowForm(true)}},{label:'Delete task',icon:'delete-outline',destructive:true,onPress:()=>setConfirmDelete(actionTask)}]}/>
-      <ActionSheet visible={!!confirmDelete} title="Delete this task?" subtitle="Its scheduled reminder will be cancelled." onClose={()=>setConfirmDelete(undefined)} actions={[{label:'Delete task',icon:'delete-outline',destructive:true,onPress:()=>{if(confirmDelete)void deleteTask(confirmDelete.id);setConfirmDelete(undefined)}}]}/>
-    </Screen>
-  );
-}
-
-function TaskRow({ task, today, onToggle, onMore }: { task: Task; today: string; onToggle: () => void; onMore: () => void }) {
-  const overdue = !task.completed && task.dueDate < today;
-  const dueLabel = task.dueDate === today ? 'Today' : `${overdue ? 'Overdue · ' : ''}${shortDate(task.dueDate)}`;
-  const priorityColor = task.priority === 'high' ? palette.danger : task.priority === 'medium' ? palette.yellow : palette.muted;
-  return <Card style={{ paddingVertical: 13, paddingHorizontal: 12 }}>
+    return task.dueDate <= today;
+  }).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || Number(a.completed) - Number(b.completed) || a.createdAt.localeCompare(b.createdAt)), [tasks, filter, today]);
+  const dueToday = visibleTasks.filter(task => task.dueDate === today);
+  const completed = dueToday.filter(task => task.completed).length;
+  const percent = dueToday.length ? Math.round(completed / dueToday.length * 100) : 0;
+  const openCreate = () => setShowForm(true);
+  return <Screen safeBottom={false} style={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 112, gap: 14 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: task.completed }} accessibilityLabel={`${task.completed ? 'Reopen' : 'Complete'} ${task.title}`} onPress={onToggle} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name={task.completed ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} size={25} color={task.completed ? palette.purple : palette.muted} /></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${task.title}`} onPress={onMore} style={{ flex: 1, minHeight: 48, justifyContent: 'center', gap: 5 }}>
-        <Text numberOfLines={1} style={{ color: palette.ink, fontSize: 15, fontWeight: '600', textDecorationLine: task.completed ? 'line-through' : 'none' }}>{task.title}</Text>
-        {!!task.notes && <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{task.notes}</Text>}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-          <Text style={{ color: overdue ? palette.danger : palette.muted, fontSize: 12 }}>{dueLabel}</Text>
-          <Text style={{ color: priorityColor, fontSize: 12, fontWeight: '600' }}>· {task.priority}</Text>
-          {task.reminderAt && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><MaterialCommunityIcons name={task.notificationId ? 'bell-check-outline' : 'bell-alert-outline'} size={14} color={task.notificationId ? palette.purple : palette.muted} /><Text style={{ fontSize: 11, color: task.notificationId ? palette.purple : palette.muted }}>{task.reminderAt}</Text></View>}
-        </View>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`More actions for ${task.title}`} onPress={onMore} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name="dots-vertical" size={21} color={palette.muted} /></Pressable>
+      <View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 29, fontWeight: '800', letterSpacing: -0.6 }}>Tasks</Text><Text style={{ color: palette.muted, fontSize: 14, marginTop: 1 }}>Stay organized, get more done.</Text></View>
+      <IconButton icon="magnify" accessibilityLabel="Search tasks" onPress={() => router.push(appRoute('/search'))} />
+      <IconButton icon="plus" accessibilityLabel="Create task" onPress={openCreate} />
     </View>
-  </Card>;
+
+    <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 18, backgroundColor: palette.surfaceSoft }}>
+      {FILTERS.map(value => { const selected = filter === value; const count = value === 'Today' ? tasks.filter(task => task.dueDate <= today).length : value === 'Upcoming' ? tasks.filter(task => !task.completed && task.dueDate > today).length : tasks.filter(task => task.completed).length; return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setFilter(value)} style={({ pressed }) => ({ flex: 1, minHeight: 41, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: selected ? palette.purpleSoft : 'transparent', opacity: pressed ? 0.75 : 1 })}><Text style={{ color: selected ? palette.ink : palette.muted, fontSize: 12, fontWeight: selected ? '700' : '500' }}>{value}{count > 0 ? ` · ${count}` : ''}</Text></Pressable>; })}
+    </View>
+
+    {filter === 'Today' && <Animated.View entering={FadeInDown.duration(230)} style={{ padding: 15, borderRadius: 22, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <View style={{ flex: 1, gap: 4 }}><Text style={{ color: palette.ink, fontSize: 16, fontWeight: '700' }}>Today, {new Date(`${today}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</Text><Text style={{ color: palette.muted, fontSize: 12 }}>{completed} of {dueToday.length} completed</Text><View style={{ height: 7, borderRadius: 5, overflow: 'hidden', backgroundColor: palette.line, marginTop: 5 }}><View style={{ width: `${percent}%`, height: '100%', borderRadius: 5, backgroundColor: palette.purple }} /></View></View>
+      <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: percent }} accessibilityLabel={`${percent}% of today's tasks completed`} style={{ width: 74, height: 74, borderRadius: 38, borderWidth: 7, borderColor: percent ? palette.purple : palette.purpleSoft, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.card }}><Text style={{ color: palette.ink, fontSize: 16, fontWeight: '800' }}>{percent}%</Text></View>
+    </Animated.View>}
+
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 1 }}><Text style={{ color: palette.ink, fontSize: 17, fontWeight: '700' }}>{filter === 'Today' ? 'Your tasks' : filter === 'Upcoming' ? 'Coming up' : 'Completed'}</Text><Text style={{ color: palette.muted, fontSize: 12 }}>{visibleTasks.length} {visibleTasks.length === 1 ? 'task' : 'tasks'}</Text></View>
+
+    {visibleTasks.length ? <View style={{ borderRadius: 22, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, paddingHorizontal: 12, paddingVertical: 2 }}>
+      {visibleTasks.map((task, index) => <TaskRow key={task.id} task={task} today={today} last={index === visibleTasks.length - 1} onOpen={() => router.push(appRoute({ pathname: '/task/[id]', params: { id: task.id } }))} onToggle={() => void toggleTask(task)} onMore={() => setActionTask(task)} />)}
+    </View> : <View style={{ alignItems: 'center', paddingVertical: 32, paddingHorizontal: 18, gap: 8 }}>
+      <MaterialCommunityIcons name={filter === 'Completed' ? 'check-circle-outline' : 'clipboard-check-outline'} size={36} color={palette.purple} />
+      <Text style={{ fontSize: 16, fontWeight: '700', color: palette.ink }}>{filter === 'Completed' ? 'Nothing completed yet' : filter === 'Upcoming' ? 'Your calendar is clear' : 'A clear list for today'}</Text>
+      <Text style={{ fontSize: 13, color: palette.muted, textAlign: 'center' }}>{filter === 'Upcoming' ? 'Tasks with a future due date will show here.' : 'Add a task whenever something needs a place.'}</Text>
+      {filter !== 'Completed' && <Button label="Add a task" secondary onPress={openCreate} style={{ marginTop: 6 }} />}
+    </View>}
+
+    {showForm && <TaskForm task={editingTask} onClose={() => { setShowForm(false); setEditingTask(undefined); }} />}
+    <ActionSheet visible={!!actionTask} title={actionTask?.title ?? 'Task'} subtitle="Choose an action" onClose={() => setActionTask(undefined)} actions={[{ label: 'Open task', icon: 'text-box-outline', onPress: () => actionTask && router.push(appRoute({ pathname: '/task/[id]', params: { id: actionTask.id } })) }, { label: 'Edit task', icon: 'pencil-outline', onPress: () => { if (actionTask) { setEditingTask(actionTask); setShowForm(true); } } }, { label: 'Delete task', icon: 'delete-outline', destructive: true, onPress: () => setConfirmDelete(actionTask) }]} />
+    <ActionSheet visible={!!confirmDelete} title="Delete this task?" subtitle="Its scheduled reminder will be cancelled." onClose={() => setConfirmDelete(undefined)} actions={[{ label: 'Delete task', icon: 'delete-outline', destructive: true, onPress: () => { if (confirmDelete) void deleteTask(confirmDelete.id); setConfirmDelete(undefined); } }]} />
+  </Screen>;
 }
+
+function TaskRow({ task, today, last, onOpen, onToggle, onMore }: { task: Task; today: string; last: boolean; onOpen: () => void; onToggle: () => void; onMore: () => void }) {
+  const overdue = !task.completed && task.dueDate < today;
+  const dueLabel = task.dueDate === today ? task.reminderAt ? `Today, ${formatTime(task.reminderAt)}` : 'Today' : `${overdue ? 'Overdue · ' : ''}${shortDate(task.dueDate)}`;
+  const flagColor = task.priority === 'high' ? palette.danger : task.priority === 'medium' ? palette.yellow : palette.muted;
+  return <View style={{ minHeight: 69, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: last ? 0 : 1, borderBottomColor: palette.line }}>
+    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: task.completed }} accessibilityLabel={`${task.completed ? 'Reopen' : 'Complete'} ${task.title}`} onPress={onToggle} style={{ width: 42, height: 48, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: 25, height: 25, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: task.completed ? palette.purple : 'transparent', borderWidth: task.completed ? 0 : 1.5, borderColor: palette.purple }}>{task.completed && <MaterialCommunityIcons name="check" size={18} color={palette.onPrimary} />}</View></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open task: ${task.title}`} onPress={onOpen} style={{ flex: 1, minHeight: 64, justifyContent: 'center', gap: 3 }}>
+      <Text numberOfLines={1} style={{ color: palette.ink, fontSize: 14, fontWeight: '600', textDecorationLine: task.completed ? 'line-through' : 'none' }}>{task.title}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><MaterialCommunityIcons name="calendar-month-outline" size={14} color={overdue ? palette.danger : palette.muted} /><Text style={{ color: overdue ? palette.danger : palette.muted, fontSize: 11 }}>{dueLabel}</Text>{task.listName && <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 11 }}> · {task.listName}</Text>}</View>
+    </Pressable>
+    {task.priority !== 'low' && <MaterialCommunityIcons name="flag" size={18} color={flagColor} />}
+    <Pressable accessibilityRole="button" accessibilityLabel={`More actions for ${task.title}`} onPress={onMore} style={{ width: 38, height: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name="dots-horizontal" size={21} color={palette.ink} /></Pressable>
+  </View>;
+}
+
+function formatTime(value: string) { const [h, m] = value.split(':'); const hour = Number(h); return Number.isFinite(hour) && m ? `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}` : value; }
