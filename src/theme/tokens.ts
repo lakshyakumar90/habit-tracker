@@ -1,11 +1,33 @@
 const light = {
-  purple:'#8068EA', purpleSoft:'#EDE8FF', yellow:'#F7C955', yellowSoft:'#FFF5D5',
-  ink:'#201D35', muted:'#85829B', line:'#EEEAF4', canvas:'#F8F7FC', card:'#FFFFFF',
-  success:'#51A77A', danger:'#DD6B72', dark:'#171522', darkCard:'#242132', darkLine:'#373446',
+  purple: '#6750C7', purpleSoft: '#F0ECFC', yellow: '#E8B83F', yellowSoft: '#FFF5DA',
+  ink: '#211E2B', muted: '#625E70', line: '#E7E3ED', canvas: '#F7F6FA', card: '#FFFFFF',
+  surfaceSoft: '#F0EEF5', input: '#F2F0F6', onPrimary: '#FFFFFF', tabInactive: '#777283',
+  success: '#347A55', danger: '#B4424D', overlay: '#17142266', heat0: '#EEECF2',
+  heat1: '#DCD4F7', heat2: '#B7A8EB', heat3: '#8C77D5', heat4: '#6750C7',
 };
-const night:typeof light = { ...light, purple:'#A795FF', purpleSoft:'#332D4D', yellow:'#F7D879', yellowSoft:'#443B2A', ink:'#F4F1FC', muted:'#AAA6B9', line:'#373446', canvas:'#171522', card:'#242132', success:'#72C596', danger:'#F18B92' };
-let current:'light'|'dark'='light';
-let accent='#8068EA';
-export const setPaletteMode=(mode:'light'|'dark')=>{current=mode;};
-export const setPaletteAccent=(color:string)=>{if(/^#[\da-f]{6}$/i.test(color))accent=color;};
-export const palette=new Proxy(light,{get:(_target,key:string|symbol)=>key==='purple'?accent:key==='purpleSoft'?`${accent}26`:Reflect.get(current==='dark'?night:light,key)});
+const night: typeof light = {
+  ...light, purple: '#B6A7FF', purpleSoft: '#302A47', yellow: '#F0CD73', yellowSoft: '#393121',
+  ink: '#F3F0F8', muted: '#BBB6C8', line: '#383543', canvas: '#14131A', card: '#1E1D25',
+  surfaceSoft: '#292731', input: '#292731', onPrimary: '#211B35', tabInactive: '#AAA5B6',
+  success: '#82D0A0', danger: '#FF9CA5', overlay: '#00000099', heat0: '#2D2B35',
+  heat1: '#403958', heat2: '#5D4F83', heat3: '#8872C1', heat4: '#B6A7FF',
+};
+let current: 'light' | 'dark' = 'light';
+let accent = light.purple;
+const blend = (hex: string, base: string, ratio: number) => {
+  const rgb = (value: string) => [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16));
+  const a = rgb(hex); const b = rgb(base);
+  return `#${a.map((v, i) => Math.round(v * ratio + b[i] * (1 - ratio)).toString(16).padStart(2, '0')).join('')}`;
+};
+export const setPaletteMode = (mode: 'light' | 'dark') => { current = mode; };
+export const setPaletteAccent = (color: string) => { if (/^#[\da-f]{6}$/i.test(color)) accent = color; };
+export const palette = new Proxy(light, {
+  get: (_target, key: string | symbol) => {
+    const tokens = current === 'dark' ? night : light;
+    if (key === 'purple') return current === 'dark' ? blend(accent, '#FFFFFF', 0.76) : accent;
+    if (key === 'purpleSoft') return blend(accent, tokens.canvas, 0.18);
+    if (key === 'heat4') return accent;
+    return Reflect.get(tokens, key);
+  },
+});
+export type PaletteToken = keyof typeof light;

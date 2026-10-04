@@ -1,11 +1,49 @@
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Header, IconButton, Screen } from '../../components/ui/Primitives';
 import { HabitRow } from '../../features/habits/HabitRow';
 import { HabitForm } from '../../features/habits/HabitForm';
 import { useHabitly } from '../../features/app/AppProvider';
-import { palette } from '../../theme/tokens';
 import type { Habit } from '../../features/habits/types';
+import { palette } from '../../theme/tokens';
 
-export default function Habits(){const {habits,archiveHabit,deleteHabit}=useHabitly();const [filter,setFilter]=useState('All');const [show,setShow]=useState(false);const [editing,setEditing]=useState<Habit|undefined>();const visible=habits.filter(h=>filter==='All'||(filter==='Active'?!h.archived:h.archived));const manage=(habit:Habit)=>Alert.alert('Manage habit',habit.name,[{text:'Cancel',style:'cancel'},{text:'Edit',onPress:()=>{setEditing(habit);setShow(true)}},{text:habit.archived?'Restore':'Archive',onPress:()=>void archiveHabit(habit.id,!habit.archived)},{text:'Delete',style:'destructive',onPress:()=>Alert.alert('Delete this habit?','Its completion history will also be removed.',[{text:'Cancel',style:'cancel'},{text:'Delete',style:'destructive',onPress:()=>void deleteHabit(habit.id)}])}]);
-return <Screen><Header title="Habits" subtitle={`${habits.filter(h=>!h.archived).length} small promises to yourself`} right={<IconButton label="＋" accessibilityLabel="Create habit" onPress={()=>{setEditing(undefined);setShow(true)}}/>}/><View style={{flexDirection:'row',gap:7,backgroundColor:'#F0EDF6',padding:5,borderRadius:22}}>{['All','Active','Archived'].map(f=><Pressable key={f} onPress={()=>setFilter(f)} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:18,backgroundColor:f===filter?'white':'transparent'}}><Text style={{fontSize:13,fontWeight:'700',color:f===filter?palette.ink:palette.muted}}>{f}</Text></Pressable>)}</View>{visible.length?visible.map(h=><View key={h.id}><HabitRow habit={h}/><Pressable onPress={()=>manage(h)} style={{alignSelf:'flex-end',marginTop:-48,marginRight:54,zIndex:1,padding:7}} accessibilityLabel={`Manage ${h.name}`}><Text style={{color:palette.muted,fontSize:18}}>···</Text></Pressable></View>):<Card style={{alignItems:'center',gap:8,paddingVertical:30}}><Text style={{fontSize:35}}>🌿</Text><Text style={{fontWeight:'800',fontSize:17,color:palette.ink}}>A little room to grow</Text><Text style={{color:palette.muted}}>Create a habit and start showing up for yourself.</Text></Card>}{show&&<HabitForm key={editing?.id??'new'} visible onClose={()=>{setShow(false);setEditing(undefined)}} habit={editing}/>}</Screen>}
+type HabitFilter = 'All' | 'Active' | 'Archived';
+
+export default function Habits() {
+  const { habits, archiveHabit, deleteHabit } = useHabitly();
+  const [filter, setFilter] = useState<HabitFilter>('All');
+  const [showForm, setShowForm] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit>();
+  const visibleHabits = habits.filter(habit => filter === 'All' || (filter === 'Active' ? !habit.archived : habit.archived));
+  const closeForm = () => { setShowForm(false); setEditingHabit(undefined); };
+  const openActions = (habit: Habit) => Alert.alert(habit.name, 'Choose an action', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Edit habit', onPress: () => { setEditingHabit(habit); setShowForm(true); } },
+    { text: habit.archived ? 'Restore' : 'Archive', onPress: () => void archiveHabit(habit.id, !habit.archived) },
+    { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Delete this habit?', 'Its completion history will also be removed.', [
+      { text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void deleteHabit(habit.id) },
+    ]) },
+  ]);
+
+  return (
+    <Screen safeBottom={false}>
+      <Header title="Habits" subtitle={`${habits.filter(habit => !habit.archived).length} active routines`} right={<IconButton label="plus" accessibilityLabel="Create habit" onPress={() => { setEditingHabit(undefined); setShowForm(true); }} />} />
+      <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 14, backgroundColor: palette.surfaceSoft }}>
+        {(['All', 'Active', 'Archived'] as const).map(value => {
+          const selected = filter === value;
+          return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setFilter(value)} style={{ flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: selected ? palette.card : 'transparent' }}><Text style={{ fontSize: 13, fontWeight: '600', color: selected ? palette.ink : palette.muted }}>{value}</Text></Pressable>;
+        })}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ fontSize: 16, fontWeight: '700', color: palette.ink }}>{filter} habits</Text><Text style={{ fontSize: 12, color: palette.muted }}>{visibleHabits.length}</Text></View>
+      {visibleHabits.length ? visibleHabits.map(habit => <HabitRow key={habit.id} habit={habit} onManage={() => openActions(habit)} />) : (
+        <Card style={{ alignItems: 'center', gap: 8, paddingVertical: 26 }}>
+          <MaterialCommunityIcons name={filter === 'Archived' ? 'archive-outline' : 'sprout-outline'} size={34} color={palette.purple} />
+          <Text style={{ fontSize: 16, fontWeight: '700', color: palette.ink }}>{filter === 'Archived' ? 'No archived habits' : 'Start with one small routine'}</Text>
+          <Text style={{ color: palette.muted, textAlign: 'center', lineHeight: 19 }}>{filter === 'Archived' ? 'Archived habits will stay here until you restore them.' : 'Pick something easy to repeat and build from there.'}</Text>
+        </Card>
+      )}
+      {showForm && <HabitForm key={editingHabit?.id ?? 'new'} visible onClose={closeForm} habit={editingHabit} />}
+    </Screen>
+  );
+}

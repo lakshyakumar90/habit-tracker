@@ -43,7 +43,7 @@ export default function Settings() {
         <Text style={eyebrow}>DATA & PRIVACY</Text>
         <SettingRow icon="☁️" title="Data & Sync" value="On this device" onPress={() => void Share.share({ message: 'Your habits and tasks are saved locally and available offline. Cloud backup is not configured.' })} />
         <SettingRow icon="📦" title="Export data" onPress={() => void exportData()} />
-        <SettingRow icon="🔔" title="Notifications" value="Not configured" onPress={() => void Share.share({ message: 'Habit reminders are not configured in this build yet.' })} />
+        <SettingRow icon="🔔" title="Notifications" value="Task reminders" onPress={() => void Share.share({ message: 'Task reminders are scheduled locally on this device. Habit reminders are not available yet.' })} />
       </Card>
       <Card>
         <Text style={{ fontWeight: '800', color: palette.ink }}>Guest profile</Text>
@@ -51,10 +51,10 @@ export default function Settings() {
       </Card>
       <Text style={{ textAlign: 'center', color: palette.muted, fontSize: 12 }}>Habitly · v1.0.0</Text>
       <Modal visible={editingName} animationType="slide" transparent onRequestClose={() => setEditingName(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: '#18142655' }}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: palette.overlay }}>
           <View style={{ backgroundColor: palette.canvas, padding: 23, borderTopLeftRadius: 27, borderTopRightRadius: 27, gap: 14 }}>
             <Text style={{ fontSize: 22, fontWeight: '800', color: palette.ink }}>Your name</Text>
-            <TextInput autoFocus value={name} onChangeText={setName} maxLength={50} placeholder="Name" style={{ height: 52, backgroundColor: 'white', borderRadius: 15, paddingHorizontal: 14, color: palette.ink }} />
+            <TextInput autoFocus value={name} onChangeText={setName} maxLength={50} placeholder="Name" style={{ height: 52, backgroundColor: palette.input, borderRadius: 15, paddingHorizontal: 14, color: palette.ink }} />
             <View style={{ flexDirection: 'row', gap: 10 }}><Button label="Cancel" secondary onPress={() => setEditingName(false)} style={{ flex: 1 }} /><Button label="Save" onPress={() => void saveName()} style={{ flex: 1 }} /></View>
           </View>
         </View>

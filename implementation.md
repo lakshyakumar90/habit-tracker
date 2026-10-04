@@ -20,6 +20,8 @@ expo-sqlite (versioned local schema)
 
 Pure calculations live in `src/features/habits/domain` and `src/features/statistics`; reusable presentation primitives live in `src/components/ui`; semantic colors live in `src/theme`. SQLite queries are centralized in `src/database`.
 
+Theme colors are semantic tokens resolved from the selected light/dark/system palette. Screens share safe-area handling; primary tab screens leave the bottom inset to the native tab bar.
+
 ## Persistence and migration policy
 
 - Open one SQLite database lazily and create/upgrade its schema using `PRAGMA user_version`.
@@ -27,6 +29,7 @@ Pure calculations live in `src/features/habits/domain` and `src/features/statist
 - Generate stable client-side IDs for records. Keep the local repository interface independent of Supabase.
 - Export uses the same repository read API and creates portable JSON.
 - Add a schema version and a forward migration whenever persisted structure changes.
+- Task reminders use `expo-notifications`; scheduled identifiers and reminder times are stored in the versioned SQLite task schema. Cancel reminders when a task is completed, edited, or deleted.
 
 ## Navigation
 
