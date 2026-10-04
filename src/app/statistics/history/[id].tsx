@@ -12,11 +12,10 @@ import { addDays, dateKey } from '../../../utils/dates';
 import { appRoute } from '../../../utils/routes';
 
 const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const heatColors = [palette.heat0, palette.heat1, palette.heat2, palette.heat3, palette.heat4];
-
 export default function HabitHistory() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { habits, entries } = useHabitly();
+  const heatColors = [palette.heat0, palette.heat1, palette.heat2, palette.heat3, palette.heat4];
   const [month, setMonth] = useState(() => { const today = new Date(); return new Date(today.getFullYear(), today.getMonth(), 1, 12); });
   const [selected, setSelected] = useState(dateKey());
   const [pickerOpen, setPickerOpen] = useState(false);

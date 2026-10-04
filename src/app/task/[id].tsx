@@ -61,7 +61,7 @@ export default function TaskDetail() {
 
         {!!task.notes && <Panel><Text style={{ color: palette.muted, fontSize: 14, lineHeight: 21 }}>{task.notes}</Text></Panel>}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 }}><Text style={sectionTitle}>Subtasks</Text><Text style={{ color: palette.muted, fontSize: 12 }}>{progress.done} of {progress.total} completed</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 }}><Text style={sectionTitle()}>Subtasks</Text><Text style={{ color: palette.muted, fontSize: 12 }}>{progress.done} of {progress.total} completed</Text></View>
         <Panel style={{ paddingHorizontal: 13, paddingVertical: 5 }}>
           {task.subtasks.map((subtask, index) => <View key={subtask.id} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: index === task.subtasks.length - 1 ? 0 : 1, borderBottomColor: palette.line }}>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: subtask.completed }} accessibilityLabel={`${subtask.completed ? 'Reopen' : 'Complete'} ${subtask.title}`} onPress={() => toggleSubtask(subtask)} style={{ width: 35, height: 40, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: subtask.completed ? palette.purple : 'transparent', borderWidth: subtask.completed ? 0 : 1.5, borderColor: palette.purple }}>{subtask.completed && <MaterialCommunityIcons name="check" size={16} color={palette.onPrimary} />}</View></Pressable>
@@ -96,4 +96,4 @@ function SubtaskDialog({ visible, value, onChange, onClose, onSave }: { visible:
 function formatTime(value: string) { const [h, m] = value.split(':'); const hour = Number(h); return Number.isFinite(hour) && m ? `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}` : value; }
 function repeatLabel(rule: string) { return rule === 'custom' ? 'Custom repeat' : `Repeats ${rule}`; }
 function reminderLabel(offset: number) { if (!offset) return 'at due time'; if (offset === 1440) return '1 day before'; if (offset % 60 === 0) return `${offset / 60} hour${offset === 60 ? '' : 's'} before`; return `${offset} minutes before`; }
-const sectionTitle = { color: palette.ink, fontSize: 17, fontWeight: '700' as const };
+const sectionTitle = () => ({ color: palette.ink, fontSize: 17, fontWeight: '700' as const });

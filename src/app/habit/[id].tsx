@@ -73,10 +73,11 @@ export default function HabitDetail() {
   const todayEntry = habitEntryMap.get(today);
   const createdOn = habit.createdAt.slice(0, 10);
   const completedToday = Boolean(todayEntry?.completed);
+  const canToggleToday = !habit.archived && (activeToday || completedToday);
   const streak = calculateStreak(habit, entries);
   const longestStreak = calculateLongestStreak(habit, entries);
   const saveDate = (date: string) => {
-    if (date < createdOn || date > today || !habit.schedule.includes(new Date(`${date}T12:00:00`).getDay())) return;
+    if (date < createdOn || date > today) return;
     const completed = habitEntryMap.get(date)?.completed ?? false;
     void Haptics.selectionAsync();
     void setEntry(habit, completed ? 0 : habit.target, date);
@@ -111,9 +112,9 @@ export default function HabitDetail() {
         {tab === 'Insights' && <InsightsView habit={habit} metrics={last30} trends={trends} range={chartRange} onRange={() => setRangeOpen(true)} />}
       </Animated.ScrollView>
 
-      {tab === 'Overview' && <View style={{ paddingHorizontal: 18, paddingTop: 7, paddingBottom: 7 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completedToday, disabled: !activeToday }} accessibilityLabel={completedToday ? 'Mark habit incomplete today' : 'Mark habit completed today'} disabled={!activeToday} onPress={() => saveDate(today)} style={({ pressed }) => ({ minHeight: 54, borderRadius: 28, backgroundColor: activeToday ? (resolvedTheme === 'dark' ? palette.purpleSoft : '#19181D') : palette.surfaceSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.91 : 1 })}>
-        <MaterialCommunityIcons name={completedToday ? 'check-circle-outline' : 'play-outline'} size={20} color={activeToday ? (resolvedTheme === 'dark' ? palette.onPrimary : '#FFFFFF') : palette.muted} />
-        <Text style={{ color: activeToday ? (resolvedTheme === 'dark' ? palette.onPrimary : '#FFFFFF') : palette.muted, fontSize: 15, fontWeight: '700' }}>{completedToday ? 'Completed today' : activeToday ? 'Mark as Completed' : habit.archived ? 'Habit archived' : 'Rest day today'}</Text>
+      {tab === 'Overview' && <View style={{ paddingHorizontal: 18, paddingTop: 7, paddingBottom: 7 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completedToday, disabled: !canToggleToday }} accessibilityLabel={completedToday ? 'Mark habit incomplete today' : 'Mark habit completed today'} disabled={!canToggleToday} onPress={() => saveDate(today)} style={({ pressed }) => ({ minHeight: 54, borderRadius: 28, backgroundColor: !canToggleToday ? palette.surfaceSoft : completedToday ? palette.success : palette.purple, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.91 : 1 })}>
+        <MaterialCommunityIcons name={completedToday ? 'check-circle-outline' : 'play-outline'} size={20} color={!canToggleToday ? palette.muted : completedToday ? (resolvedTheme === 'dark' ? palette.canvas : '#FFFFFF') : palette.onPrimary} />
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ color: !canToggleToday ? palette.muted : completedToday ? (resolvedTheme === 'dark' ? palette.canvas : '#FFFFFF') : palette.onPrimary, fontSize: 15, fontWeight: '700' }}>{completedToday ? 'Mark as Incomplete' : activeToday ? 'Mark as Completed' : habit.archived ? 'Habit archived' : 'Rest day today'}</Text>
       </Pressable></View>}
     </SafeAreaView>
 
@@ -151,7 +152,7 @@ function OverviewView({ habit, entries, week, today, weekMetrics, streak, longes
 
     <Panel style={{ padding: 16, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <Text style={panelTitle}>Weekly progress</Text>
+        <Text style={panelTitle()}>Weekly progress</Text>
         <Text style={{ color: palette.muted, fontSize: 12 }}>{weekMetrics.completed}/{weekMetrics.scheduled} completed</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -161,7 +162,7 @@ function OverviewView({ habit, entries, week, today, weekMetrics, streak, longes
             const done = entries.some(entry => entry.habitId === habit.id && entry.date === key && entry.completed);
             const due = isScheduledOn(habit, day) && key >= habit.createdAt.slice(0, 10) && key <= today;
             const height = done ? 54 : due ? 14 : 28;
-            return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${done ? ', completed' : due ? ', missed' : ''}`} onPress={() => { if (key <= today && isScheduledOn(habit, day)) onDate(key); }} style={{ flex: 1, alignItems: 'center', gap: 5 }}>
+            return <Pressable key={key} accessibilityRole="button" accessibilityState={{ disabled: key > today }} accessibilityLabel={`${day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${done ? ', completed' : due ? ', missed' : ''}`} disabled={key > today} onPress={() => onDate(key)} style={{ flex: 1, alignItems: 'center', gap: 5 }}>
               <View style={{ width: 17, height, borderRadius: 9, backgroundColor: done ? habit.color : alpha(habit.color, due ? 0.23 : 0.12) }} />
               <Text style={{ color: palette.muted, fontSize: 10, fontWeight: key === today ? '700' : '500' }}>{DAY_INITIALS[index]}</Text>
             </Pressable>;
@@ -189,7 +190,7 @@ function HistoryView({ habit, entries, month, calendar, recent, showAll, onToggl
   return <>
     <Panel style={{ padding: 15, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={panelTitle}>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
+        <Text style={panelTitle()}>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
         <View style={{ flexDirection: 'row', gap: 5 }}>
           <HeaderAction icon="chevron-left" label="Previous month" onPress={() => onMonth(-1)} compact />
           <HeaderAction icon="chevron-right" label="Next month" onPress={() => onMonth(1)} compact disabled={monthKey >= currentMonthKey} />
@@ -197,8 +198,8 @@ function HistoryView({ habit, entries, month, calendar, recent, showAll, onToggl
       </View>
       <View style={{ flexDirection: 'row' }}>{CALENDAR_WEEKDAYS.map(day => <Text key={day} style={{ flex: 1, textAlign: 'center', color: palette.muted, fontSize: 10, fontWeight: '600', paddingVertical: 3 }}>{day}</Text>)}</View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {calendar.map(day => day.date ? <Pressable key={day.key} accessibilityRole="button" accessibilityState={{ disabled: day.future, selected: day.key === today }} accessibilityLabel={`${day.key}, ${day.entry?.completed ? 'completed' : day.scheduled ? 'not completed' : 'rest day'}`} disabled={day.future || !day.scheduled || day.beforeStart} onPress={() => onDate(day.key)} style={{ width: '14.285%', height: 40, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 31, height: 31, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: day.level ? heatColor(habit.color, day.level) : palette.surfaceSoft, borderWidth: day.key === today ? 1.5 : 0, borderColor: palette.purple, opacity: day.future || day.beforeStart ? 0.45 : day.scheduled ? 1 : 0.55 }}>
+        {calendar.map(day => day.date ? <Pressable key={day.key} accessibilityRole="button" accessibilityState={{ disabled: day.future || day.beforeStart, selected: day.key === today }} accessibilityLabel={`${day.key}, ${day.entry?.completed ? 'completed' : day.scheduled ? 'not completed' : 'rest day'}`} disabled={day.future || day.beforeStart} onPress={() => onDate(day.key)} style={{ width: '14.285%', height: 40, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 31, height: 31, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: day.level ? heatColor(habit.color, day.level) : palette.surfaceSoft, borderWidth: day.key === today ? 1.5 : 0, borderColor: palette.purple, opacity: day.future || day.beforeStart ? 0.45 : 1 }}>
             <Text style={{ color: day.level >= 3 ? '#FFFFFF' : palette.ink, fontSize: 12, fontWeight: day.key === today ? '800' : '500' }}>{day.date.getDate()}</Text>
           </View>
         </Pressable> : <View key={day.key} style={{ width: '14.285%', height: 40 }} />)}
@@ -211,7 +212,7 @@ function HistoryView({ habit, entries, month, calendar, recent, showAll, onToggl
     </Panel>
 
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 3, marginTop: 1 }}>
-      <Text style={panelTitle}>Recent activity</Text>
+      <Text style={panelTitle()}>Recent activity</Text>
       <Pressable accessibilityRole="button" accessibilityState={{ selected: showAll }} onPress={onToggleAll} hitSlop={8}><Text style={{ color: palette.muted, fontSize: 13 }}>{showAll ? 'Show less' : 'See all'}</Text></Pressable>
     </View>
     <Panel style={{ paddingHorizontal: 13, paddingVertical: 2 }}>
@@ -242,7 +243,7 @@ function InsightsView({ habit, metrics, trends, range, onRange }: { habit: Habit
   return <>
     <Panel style={{ padding: 16, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <View style={{ flex: 1 }}><Text style={panelTitle}>Completion rate</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>Last 30 days</Text></View>
+        <View style={{ flex: 1 }}><Text style={panelTitle()}>Completion rate</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>Last 30 days</Text></View>
         <ProgressRing value={metrics.rate} color={habit.color} size={78} fontSize={17} />
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -256,14 +257,14 @@ function InsightsView({ habit, metrics, trends, range, onRange }: { habit: Habit
 
     <Panel style={{ padding: 16, gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <View style={{ flex: 1 }}><Text style={panelTitle}>{isDuration ? 'Time spent' : 'Progress logged'}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{range === 'Weekly' ? 'Last 4 weeks' : 'Last 4 months'}</Text></View>
+        <View style={{ flex: 1 }}><Text style={panelTitle()}>{isDuration ? 'Time spent' : 'Progress logged'}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{range === 'Weekly' ? 'Last 4 weeks' : 'Last 4 months'}</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel={`Chart range: ${range}. Change range`} onPress={onRange} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 18, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, flexDirection: 'row', alignItems: 'center', gap: 4 }}><Text style={{ color: palette.ink, fontSize: 12, fontWeight: '600' }}>{range}</Text><MaterialCommunityIcons name="chevron-down" size={16} color={palette.ink} /></Pressable>
       </View>
       <TrendChart buckets={trends} color={habit.color} unit={unit} />
     </Panel>
 
     <Panel style={{ padding: 16, gap: 13 }}>
-      <View><Text style={panelTitle}>Best performing day</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{best ? `You’re most consistent on ${best}s.` : 'Complete a habit to find your strongest day.'}</Text></View>
+      <View><Text style={panelTitle()}>Best performing day</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{best ? `You’re most consistent on ${best}s.` : 'Complete a habit to find your strongest day.'}</Text></View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 5 }}>
         {DAY_INITIALS.map((day, index) => {
           const dayName = WEEKDAYS[index];
@@ -298,7 +299,7 @@ type CalendarDay = { key: string; date?: Date; entry?: HabitEntry; scheduled: bo
 type Last30Metrics = { completed: number; missed: number; totalDays: number; rate: number; totalValue: number; bestWeekday: string | null };
 type TrendBucket = { label: string; value: number };
 
-const panelTitle = { color: palette.ink, fontSize: 16, fontWeight: '700' as const, letterSpacing: -0.2 };
+const panelTitle = () => ({ color: palette.ink, fontSize: 16, fontWeight: '700' as const, letterSpacing: -0.2 });
 const absoluteFill = { position: 'absolute' as const, top: 0, right: 0, bottom: 0, left: 0 };
 
 function Panel({ children, style }: { children: ReactNode; style?: ViewStyle }) {

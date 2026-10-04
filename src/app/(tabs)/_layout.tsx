@@ -1,78 +1,89 @@
-import { Tabs } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import PagerView, { type PagerViewOnPageScrollEvent, type PagerViewOnPageSelectedEvent, type PagerViewRef } from '@expo/ui/community/pager-view';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { router, usePathname, type Href } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Today from './today';
+import Habits from './habits';
+import Tasks from './tasks';
+import Stats from './stats';
+import Profile from './profile';
 import { useHabitly } from '../../features/app/AppProvider';
 import { palette } from '../../theme/tokens';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
-import { useCallback, useEffect } from 'react';
-import { usePathname, router, type Href } from 'expo-router';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-const icons = {
-  today: { active: 'view-dashboard', inactive: 'view-dashboard-outline' },
-  habits: { active: 'sprout', inactive: 'sprout-outline' },
-  tasks: { active: 'checkbox-marked-circle', inactive: 'checkbox-blank-circle-outline' },
-  stats: { active: 'chart-box', inactive: 'chart-box-outline' },
-  profile: { active: 'account', inactive: 'account-outline' },
-} as const;
+const tabs = [
+  { name: 'today', label: 'Today', active: 'view-dashboard', inactive: 'view-dashboard-outline', path: '/(tabs)/today' },
+  { name: 'habits', label: 'Habits', active: 'sprout', inactive: 'sprout-outline', path: '/(tabs)/habits' },
+  { name: 'tasks', label: 'Tasks', active: 'checkbox-marked-circle', inactive: 'checkbox-blank-circle-outline', path: '/(tabs)/tasks' },
+  { name: 'stats', label: 'Stats', active: 'chart-box', inactive: 'chart-box-outline', path: '/(tabs)/stats' },
+  { name: 'profile', label: 'Profile', active: 'account', inactive: 'account-outline', path: '/(tabs)/profile' },
+] as const;
+const pages = [Today, Habits, Tasks, Stats, Profile];
+const paths: Href[] = tabs.map(tab => tab.path);
 
 export default function TabLayout() {
-  useHabitly(); // Theme changes update the native tab bar immediately.
-  const insets=useSafeAreaInsets();
-  const {width}=useWindowDimensions();
-  const pathname=usePathname();
-  const offset=useSharedValue(0);
-  const currentIndex=Math.max(0,Object.keys(icons).findIndex(name=>pathname.endsWith(`/${name}`)));
-  const changeTab=useCallback((index:number,direction:number)=>{
-    const paths:Href[]=['/(tabs)/today','/(tabs)/habits','/(tabs)/tasks','/(tabs)/stats','/(tabs)/profile'];
-    // Reanimated shared values are intentionally updated from navigation callbacks.
-    // eslint-disable-next-line react-hooks/immutability
-    offset.value=-direction*width;
-    router.navigate(paths[index]);
-    requestAnimationFrame(()=>{offset.value=withTiming(0,{duration:190});});
-  },[offset,width]);
-  const swipe=Gesture.Pan()
-    .activeOffsetX([-42,42])
-    .failOffsetY([-18,18])
-    .onUpdate(event=>{
-      // eslint-disable-next-line react-hooks/immutability
-      offset.value=Math.max(-44,Math.min(44,event.translationX*.18));
-    })
-    .onEnd(event=>{
-      const dx=event.translationX;
-      const nextIndex=dx < -58 || event.velocityX < -650 ? currentIndex+1 : dx > 58 || event.velocityX > 650 ? currentIndex-1 : currentIndex;
-      if(nextIndex!==currentIndex&&nextIndex>=0&&nextIndex<Object.keys(icons).length){
-        const direction=nextIndex>currentIndex?-1:1;
-        // Gesture completion intentionally drives the tab exit animation.
-        // eslint-disable-next-line react-hooks/immutability
-        offset.value=withTiming(direction*width,{duration:130},finished=>{if(finished)runOnJS(changeTab)(nextIndex,direction);});
-      } else {
-        offset.value=withTiming(0,{duration:160});
-      }
-    });
-  const swipeMotion=useAnimatedStyle(()=>({transform:[{translateX:offset.value}]}));
-  return (
-    <GestureDetector gesture={swipe}>
-    <Animated.View style={[{flex:1},swipeMotion]}>
-    <Tabs screenOptions={{
-      headerShown: false,
-      tabBarActiveTintColor: palette.purple,
-      tabBarInactiveTintColor: palette.tabInactive,
-      tabBarStyle: { position:'absolute', left:16, right:16, bottom:Math.max(insets.bottom,8)+8, height:72, paddingTop:10, paddingBottom:10, borderRadius:25, borderTopWidth:0, borderWidth:1, borderColor:palette.line, backgroundColor:palette.card, elevation:8, shadowColor:'#000', shadowOpacity:.1, shadowRadius:14, shadowOffset:{width:0,height:5} },
-      tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
-      tabBarIconStyle: { marginTop: 1 },
-    }}>
-      {Object.entries(icons).map(([name, pair]) => (
-        <Tabs.Screen key={name} name={name} options={{
-          title: name[0].toUpperCase() + name.slice(1),
-          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name={focused ? pair.active : pair.inactive} color={color} focused={focused} />,
-        }} />
-      ))}
-    </Tabs>
-    </Animated.View>
-    </GestureDetector>
-  );
-}
+  useHabitly();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const pathname = usePathname();
+  const routeIndex = Math.max(0, tabs.findIndex(tab => pathname.endsWith(`/${tab.name}`)));
+  const pager = useRef<PagerViewRef>(null);
+  const progress = useSharedValue(routeIndex);
+  const cellWidth = (width - 32 - 12) / tabs.length;
 
-function AnimatedTabIcon({name,color,focused}:{name:string;color:string|import('react-native').ColorValue;focused:boolean}){const scale=useSharedValue(focused?1.04:1);useEffect(()=>{scale.value=withTiming(focused?1.04:1,{duration:160})},[focused,scale]);const motion=useAnimatedStyle(()=>({transform:[{scale:scale.value}]}));return <Animated.View style={[{width:38,height:34,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:focused?palette.purpleSoft:'transparent'},motion]}><MaterialCommunityIcons name={name as keyof typeof MaterialCommunityIcons.glyphMap} size={22} color={color}/></Animated.View>}
+  useEffect(() => {
+    pager.current?.setPage(routeIndex);
+    // The page route can change from links inside a screen; keep the pill in sync.
+    progress.value = withTiming(routeIndex, { duration: 180 });
+  }, [progress, routeIndex]);
+
+  const onPageScroll = useCallback((event: PagerViewOnPageScrollEvent) => {
+    'worklet';
+    // eslint-disable-next-line react-hooks/immutability
+    progress.value = event.nativeEvent.position + event.nativeEvent.offset;
+  }, [progress]);
+
+  const onPageSelected = useCallback((event: PagerViewOnPageSelectedEvent) => {
+    const index = event.nativeEvent.position;
+    if (tabs[index] && !pathname.endsWith(`/${tabs[index].name}`)) router.navigate(paths[index]);
+  }, [pathname]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: progress.value * cellWidth }],
+  }), [cellWidth]);
+
+  return <View style={{ flex: 1, backgroundColor: palette.canvas }}>
+    <PagerView
+      ref={pager}
+      initialPage={routeIndex}
+      onPageScroll={onPageScroll}
+      onPageSelected={onPageSelected}
+      offscreenPageLimit={1}
+      style={{ flex: 1 }}
+    >
+      {pages.map((Page, index) => <View key={tabs[index].name} style={{ flex: 1 }}><Page /></View>)}
+    </PagerView>
+
+    <View style={{ position: 'absolute', left: 16, right: 16, bottom: Math.max(insets.bottom, 8) + 8, height: 72, padding: 6, borderRadius: 25, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, elevation: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 5 } }}>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 6, top: 6, bottom: 6, width: cellWidth, borderRadius: 19, backgroundColor: palette.purpleSoft }, indicatorStyle]} />
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        {tabs.map((tab, index) => <Pressable
+          key={tab.name}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: routeIndex === index }}
+          accessibilityLabel={tab.label}
+          onPress={() => {
+            if (index === routeIndex) return;
+            pager.current?.setPage(index);
+          }}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}
+        >
+          <MaterialCommunityIcons name={(routeIndex === index ? tab.active : tab.inactive) as keyof typeof MaterialCommunityIcons.glyphMap} size={22} color={routeIndex === index ? palette.purple : palette.tabInactive} />
+          <Text numberOfLines={1} style={{ color: routeIndex === index ? palette.ink : palette.tabInactive, fontSize: 10, fontWeight: routeIndex === index ? '700' : '500' }}>{tab.label}</Text>
+        </Pressable>)}
+      </View>
+    </View>
+  </View>;
+}
