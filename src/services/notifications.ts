@@ -13,8 +13,8 @@ Notifications.setNotificationHandler({
 export async function requestReminderPermission() {
   if (Platform.OS === 'web') return false;
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('task-reminders', {
-      name: 'Task reminders',
+    await Notifications.setNotificationChannelAsync('habitly-reminders', {
+      name: 'Habitly reminders',
       description: 'Reminders for tasks you scheduled in Habitly.',
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 160],
@@ -26,16 +26,16 @@ export async function requestReminderPermission() {
   return result.granted;
 }
 
-export async function cancelTaskReminder(taskId: string) {
+export async function cancelEntityReminders(taskId: string) {
   if (Platform.OS === 'web') return;
   const pending = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(pending
-    .filter(notification => notification.content.data?.taskId === taskId)
+    .filter(notification => notification.content.data?.entityId === taskId)
     .map(notification => Notifications.cancelScheduledNotificationAsync(notification.identifier)));
 }
 
 export async function scheduleTaskReminder(taskId: string, title: string, dueDate: string, time: string) {
-  await cancelTaskReminder(taskId);
+  await cancelEntityReminders(taskId);
   if (Platform.OS === 'web') return null;
   const granted = await requestReminderPermission();
   if (!granted) throw new Error('Allow notifications in system settings to schedule a reminder.');
@@ -46,14 +46,29 @@ export async function scheduleTaskReminder(taskId: string, title: string, dueDat
     content: {
       title: 'Task reminder',
       body: title,
-      data: { taskId },
+      data: { entityId: taskId, entityType: 'task' },
       sound: true,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: triggerDate,
-      ...(Platform.OS === 'android' ? { channelId: 'task-reminders' } : {}),
+      ...(Platform.OS === 'android' ? { channelId: 'habitly-reminders' } : {}),
     },
   });
   return notificationId;
+}
+
+export async function scheduleHabitReminders(habitId:string,name:string,weekdays:number[],time:string) {
+  await cancelEntityReminders(habitId);
+  if(Platform.OS==='web'||!weekdays.length)return [];
+  if(!await requestReminderPermission())throw new Error('Allow notifications in system settings to schedule a reminder.');
+  const [hour,minute]=time.split(':').map(Number);
+  const ids:string[]=[];
+  for(const weekday of weekdays){
+    ids.push(await Notifications.scheduleNotificationAsync({
+      content:{title:'Habit reminder',body:`Time for ${name}.`,data:{entityId:habitId,entityType:'habit'},sound:true},
+      trigger:{type:Notifications.SchedulableTriggerInputTypes.WEEKLY,weekday:weekday+1,hour,minute,...(Platform.OS==='android'?{channelId:'habitly-reminders'}:{})},
+    }));
+  }
+  return ids;
 }

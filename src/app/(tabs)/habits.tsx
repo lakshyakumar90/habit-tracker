@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Header, IconButton, Screen } from '../../components/ui/Primitives';
 import { HabitRow } from '../../features/habits/HabitRow';
@@ -7,6 +7,7 @@ import { HabitForm } from '../../features/habits/HabitForm';
 import { useHabitly } from '../../features/app/AppProvider';
 import type { Habit } from '../../features/habits/types';
 import { palette } from '../../theme/tokens';
+import { ActionSheet } from '../../components/ui/ActionSheet';
 
 type HabitFilter = 'All' | 'Active' | 'Archived';
 
@@ -15,20 +16,15 @@ export default function Habits() {
   const [filter, setFilter] = useState<HabitFilter>('All');
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit>();
+  const [actionHabit,setActionHabit]=useState<Habit>();
+  const [confirmDelete,setConfirmDelete]=useState<Habit>();
   const visibleHabits = habits.filter(habit => filter === 'All' || (filter === 'Active' ? !habit.archived : habit.archived));
   const closeForm = () => { setShowForm(false); setEditingHabit(undefined); };
-  const openActions = (habit: Habit) => Alert.alert(habit.name, 'Choose an action', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Edit habit', onPress: () => { setEditingHabit(habit); setShowForm(true); } },
-    { text: habit.archived ? 'Restore' : 'Archive', onPress: () => void archiveHabit(habit.id, !habit.archived) },
-    { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Delete this habit?', 'Its completion history will also be removed.', [
-      { text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void deleteHabit(habit.id) },
-    ]) },
-  ]);
+  const openActions = (habit: Habit) => setActionHabit(habit);
 
   return (
     <Screen safeBottom={false}>
-      <Header title="Habits" subtitle={`${habits.filter(habit => !habit.archived).length} active routines`} right={<IconButton label="plus" accessibilityLabel="Create habit" onPress={() => { setEditingHabit(undefined); setShowForm(true); }} />} />
+      <Header title="Habits" subtitle={`${habits.filter(habit => !habit.archived).length} active routines`} right={<IconButton icon="plus" accessibilityLabel="Create habit" onPress={() => { setEditingHabit(undefined); setShowForm(true); }} />} />
       <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 14, backgroundColor: palette.surfaceSoft }}>
         {(['All', 'Active', 'Archived'] as const).map(value => {
           const selected = filter === value;
@@ -44,6 +40,8 @@ export default function Habits() {
         </Card>
       )}
       {showForm && <HabitForm key={editingHabit?.id ?? 'new'} visible onClose={closeForm} habit={editingHabit} />}
+      <ActionSheet visible={!!actionHabit} title={actionHabit?.name??'Habit'} subtitle="Manage this routine" onClose={()=>setActionHabit(undefined)} actions={[{label:'Edit habit',icon:'pencil-outline',onPress:()=>{setEditingHabit(actionHabit);setShowForm(true)}},{label:actionHabit?.archived?'Restore habit':'Archive habit',icon:actionHabit?.archived?'archive-arrow-up-outline':'archive-outline',onPress:()=>{if(actionHabit)void archiveHabit(actionHabit.id,!actionHabit.archived)}},{label:'Delete habit',icon:'delete-outline',destructive:true,onPress:()=>setConfirmDelete(actionHabit)}]}/>
+      <ActionSheet visible={!!confirmDelete} title="Delete this habit?" subtitle="Its completion history will also be removed." onClose={()=>setConfirmDelete(undefined)} actions={[{label:'Delete habit',icon:'delete-outline',destructive:true,onPress:()=>{if(confirmDelete)void deleteHabit(confirmDelete.id);setConfirmDelete(undefined)}}]}/>
     </Screen>
   );
 }

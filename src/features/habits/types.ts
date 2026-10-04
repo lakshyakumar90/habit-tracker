@@ -9,6 +9,8 @@ export type Habit = {
   target: number;
   unit: string;
   schedule: number[];
+  reminderAt?: string | null;
+  notificationIds?: string[];
   archived: boolean;
   createdAt: string;
 };

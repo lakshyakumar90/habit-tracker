@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button, Card, Header, IconButton, Screen } from '../../components/ui/Primitives';
 import { useHabitly } from '../../features/app/AppProvider';
@@ -7,6 +7,7 @@ import { TaskForm } from '../../features/tasks/TaskForm';
 import type { Task } from '../../features/tasks/types';
 import { palette } from '../../theme/tokens';
 import { dateKey, shortDate } from '../../utils/dates';
+import { ActionSheet } from '../../components/ui/ActionSheet';
 
 type TaskFilter = 'Today' | 'Upcoming' | 'Completed';
 
@@ -15,6 +16,8 @@ export default function Tasks() {
   const [filter, setFilter] = useState<TaskFilter>('Today');
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task>();
+  const [actionTask,setActionTask]=useState<Task>();
+  const [confirmDelete,setConfirmDelete]=useState<Task>();
   const today = dateKey();
   const visibleTasks = tasks.filter(task => {
     if (filter === 'Completed') return task.completed;
@@ -23,18 +26,11 @@ export default function Tasks() {
   });
   const openCreate = () => { setEditingTask(undefined); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditingTask(undefined); };
-  const openActions = (task: Task) => Alert.alert(task.title, 'Choose an action', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Edit task', onPress: () => { setEditingTask(task); setShowForm(true); } },
-    { text: 'Delete task', style: 'destructive', onPress: () => Alert.alert('Delete task?', 'This also cancels its reminder.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void deleteTask(task.id) },
-    ]) },
-  ]);
+  const openActions = (task: Task) => setActionTask(task);
 
   return (
     <Screen safeBottom={false}>
-      <Header title="Tasks" subtitle="Keep the next small step in view." right={<IconButton label="plus" accessibilityLabel="Add task" onPress={openCreate} />} />
+      <Header title="Tasks" subtitle="Keep the next small step in view." right={<IconButton icon="plus" accessibilityLabel="Add task" onPress={openCreate} />} />
       <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 14, backgroundColor: palette.surfaceSoft }}>
         {(['Today', 'Upcoming', 'Completed'] as const).map(value => {
           const selected = filter === value;
@@ -54,6 +50,8 @@ export default function Tasks() {
         </View>
       )}
       {showForm && <TaskForm key={editingTask?.id ?? 'new'} task={editingTask} onClose={closeForm} />}
+      <ActionSheet visible={!!actionTask} title={actionTask?.title??'Task'} subtitle="Choose an action" onClose={()=>setActionTask(undefined)} actions={[{label:'Edit task',icon:'pencil-outline',onPress:()=>{setEditingTask(actionTask);setShowForm(true)}},{label:'Delete task',icon:'delete-outline',destructive:true,onPress:()=>setConfirmDelete(actionTask)}]}/>
+      <ActionSheet visible={!!confirmDelete} title="Delete this task?" subtitle="Its scheduled reminder will be cancelled." onClose={()=>setConfirmDelete(undefined)} actions={[{label:'Delete task',icon:'delete-outline',destructive:true,onPress:()=>{if(confirmDelete)void deleteTask(confirmDelete.id);setConfirmDelete(undefined)}}]}/>
     </Screen>
   );
 }
