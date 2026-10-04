@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Header, IconButton, ProgressBar, Screen, SectionTitle } from '../../components/ui/Primitives';
@@ -24,18 +24,18 @@ export default function Today() {
 
   return (
     <Screen safeBottom={false}>
-      <Header title={`${greeting},`} subtitle={`${profileName} · ${selectedDate === today ? 'Today' : shortDate(selectedDate)}`} right={<IconButton label="magnify" accessibilityLabel="Search" onPress={() => router.push(appRoute('/search'))} />} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+      <Header title={`${greeting},`} subtitle={`${profileName} · ${selectedDate === today ? 'Today' : shortDate(selectedDate)}`} right={<IconButton icon="magnify" accessibilityLabel="Search" onPress={() => router.push(appRoute('/search'))} />} />
+      <View style={{ flexDirection: 'row', gap: 5 }}>
         {week.map(day => {
           const key = dateKey(day);
           const chosen = key === selectedDate;
           const label = day.toLocaleDateString('en', { weekday: 'short' });
-          return <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: chosen }} accessibilityLabel={`${label} ${day.getDate()}${key === today ? ', today' : ''}`} onPress={() => setSelectedDate(key)} style={{ minWidth: 44, height: 62, borderRadius: 15, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: chosen ? palette.purple : palette.card, borderWidth: 1, borderColor: chosen ? palette.purple : palette.line }}>
+          return <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: chosen }} accessibilityLabel={`${label} ${day.getDate()}${key === today ? ', today' : ''}`} onPress={() => setSelectedDate(key)} style={{ flex: 1, minWidth: 0, height: 62, borderRadius: 15, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: chosen ? palette.purple : palette.card, borderWidth: 1, borderColor: chosen ? palette.purple : palette.line }}>
             <Text style={{ color: chosen ? palette.onPrimary : palette.muted, fontSize: 11, fontWeight: '600' }}>{label}</Text>
             <Text style={{ color: chosen ? palette.onPrimary : palette.ink, fontSize: 16, fontWeight: '700' }}>{day.getDate()}</Text>
           </Pressable>;
         })}
-      </ScrollView>
+      </View>
       <Card style={{ backgroundColor: palette.purpleSoft, borderColor: palette.purpleSoft, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View><Text style={{ fontSize: 17, fontWeight: '700', color: palette.ink }}>{selectedDate === today ? 'Daily progress' : 'Past day progress'}</Text><Text style={{ fontSize: 13, color: palette.muted, marginTop: 4 }}>{completed} of {activeHabits.length} habits complete</Text></View>
