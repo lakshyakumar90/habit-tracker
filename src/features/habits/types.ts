@@ -1,11 +1,14 @@
 export type HabitType = 'boolean' | 'quantity' | 'duration' | 'counter';
+export type HabitDifficulty = 'easy' | 'medium' | 'hard';
 
 export type Habit = {
   id: string;
   name: string;
+  description?: string;
   icon: string;
   color: string;
   type: HabitType;
+  difficulty?: HabitDifficulty;
   target: number;
   unit: string;
   schedule: number[];

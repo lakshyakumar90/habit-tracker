@@ -48,6 +48,11 @@ async function initialize() {
       await db.execAsync(`ALTER TABLE habits ADD COLUMN reminder_at TEXT; ALTER TABLE habits ADD COLUMN notification_ids TEXT NOT NULL DEFAULT '[]'; PRAGMA user_version = 3;`);
     });
   }
+  if ((version?.user_version ?? 0) < 4) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`ALTER TABLE habits ADD COLUMN description TEXT NOT NULL DEFAULT ''; ALTER TABLE habits ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'easy'; PRAGMA user_version = 4;`);
+    });
+  }
   const prefs = await db.getFirstAsync<{ value: string }>("SELECT value FROM preferences WHERE key = 'profileName'");
   if (!prefs) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Friend')");
   const seeded = await db.getFirstAsync<{ value:string }>("SELECT value FROM preferences WHERE key = 'sampleDataSeeded'");
