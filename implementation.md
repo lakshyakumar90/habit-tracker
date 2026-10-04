@@ -20,7 +20,7 @@ expo-sqlite (versioned local schema)
 
 Pure calculations live in `src/features/habits/domain` and `src/features/statistics`; reusable presentation primitives live in `src/components/ui`; semantic colors live in `src/theme`. SQLite queries are centralized in `src/database`.
 
-Theme colors are semantic tokens resolved from the selected light/dark/system palette. Screens share safe-area handling; primary tab screens leave the bottom inset to the native tab bar.
+Theme colors are semantic tokens resolved from the selected light/dark/system palette and saved locally with the accent color. Screens and custom sheets share safe-area handling. The tab bar floats above the bottom inset, with scroll content padded clear of it.
 
 ## Persistence and migration policy
 
@@ -29,7 +29,8 @@ Theme colors are semantic tokens resolved from the selected light/dark/system pa
 - Generate stable client-side IDs for records. Keep the local repository interface independent of Supabase.
 - Export uses the same repository read API and creates portable JSON.
 - Add a schema version and a forward migration whenever persisted structure changes.
-- Task reminders use `expo-notifications`; scheduled identifiers and reminder times are stored in the versioned SQLite task schema. Cancel reminders when a task is completed, edited, or deleted.
+- Task reminders use date triggers; habit reminders use weekly weekday triggers. Both use `expo-notifications` and a shared Android channel. Task reminder time/identifier and habit reminder time/identifiers are stored locally. Cancel and replace schedules when an item changes; cancel them when completed, archived, or deleted.
+- Schema version 3 adds a habit reminder time and persisted notification identifier list. Migrations are forward-only.
 
 ## Navigation
 
@@ -37,7 +38,7 @@ The four primary tabs are Today, Habits, Tasks, and Stats. Habit details and Sea
 
 ## Visual system
 
-Use a warm near-white/lilac canvas, deep ink text, purple as the primary accent, and restrained yellow for secondary emphasis. Cards use rounded corners, thin low-contrast borders, and generous spacing. Keep touch targets at least 44 points, provide accessible labels for icon-only controls, and respect the device color scheme where theme is set to System.
+Use a warm near-white/lilac canvas for light mode and a low-glare charcoal/plum canvas for dark mode, with deep ink/light text, selectable purple-led accents, and restrained yellow emphasis. Cards use rounded corners, thin borders, and generous spacing. Keep touch targets at least 44 points, provide accessible labels for icon-only controls, and respect the device color scheme where theme is set to System. Use Reanimated for focus transitions, card entrances, button presses, and tab selection. Use custom in-app sheets and calendar/time pickers instead of native alert dialogs.
 
 ## Verification
 

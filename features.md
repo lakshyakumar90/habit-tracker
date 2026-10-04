@@ -8,16 +8,17 @@ Habitly is a local-first habit and task tracker inspired by the supplied design 
 - Today dashboard with date, completion progress, active streak, scheduled habits, and today's tasks.
 - Habit list with All, Active, and Archived filters; create, edit, archive, restore, and delete habits.
 - Habit types: check-off, quantity, duration, and counter. Schedules support every day and chosen weekdays.
-- Habit detail with completion history, current/longest streak, consistency, and a contribution-style calendar.
-- Tasks with due dates, notes, priority, completion, Today, Upcoming, and Completed views, plus optional local reminders.
-- Statistics for weekly/monthly completion, total completions, streaks, and best weekday.
+- Habit detail with current/longest streaks, completion rate, schedule, and a month-labelled contribution calendar. Tapping a date opens a month calendar and lets the user add or remove historical check-ins.
+- Optional repeating local habit reminders on the selected weekdays at any chosen hour and minute.
+- Tasks with arbitrary due dates, notes, priority, completion, Today, Upcoming, and Completed views, plus optional local reminders at any chosen hour and minute.
+- Statistics for scheduled check-in consistency through the current day, average weekly consistency in the current month, total completed check-ins, streaks, and best weekday.
 - Local search across habits and tasks.
-- Settings for profile name, light/dark/system appearance, accent color, reminders, and JSON data export.
+- Settings for profile name, working light/dark/system appearance, selectable accent color, an in-app local-data explanation, notification permission, and JSON file/share or clipboard export.
 - Offline persistence on device using SQLite; seeded sample habits for a first-run preview.
 
 ## Deferred scope
 
-Google/email authentication, account recovery/deletion, Supabase-backed accounts, cross-device synchronization, sync conflict resolution, habit reminders, push notifications, background sync, and production release infrastructure require provider configuration and/or device credentials. Task reminders are local scheduled notifications and require notification permission on a supported native build.
+Google/email authentication, account recovery/deletion, Supabase-backed accounts, cross-device synchronization, sync conflict resolution, push notifications, background sync, and production release infrastructure require provider configuration and/or device credentials. Task and habit reminders are local scheduled notifications and require notification permission on a supported native build. Notification appearance is controlled by the operating system.
 
 AI coaching, social features, leaderboards, health integrations, widgets, subscriptions, teams, and a web dashboard are out of v1 scope.
 
@@ -26,7 +27,7 @@ AI coaching, social features, leaderboards, health integrations, widgets, subscr
 - Habit and task changes persist locally before the screen reports completion.
 - A habit has at most one entry per local calendar date; repeat taps toggle that date's check-off state.
 - Quantity, duration, and counter habits complete when their entry meets the configured target.
-- Habit check-ins can be added or changed for dates in the recent seven-day selector; older history is visible in the habit detail calendar.
+- Habit check-ins can be added or changed for recent dates on Today and for any date through the habit detail calendar.
 - Archived habits stay in history and can be restored. Explicit delete removes the habit and its entries.
 - Statistics and heatmap intensity derive from local entries, not presentation state.
 - Dates are stored as `YYYY-MM-DD` local calendar keys to avoid UTC date shifts.

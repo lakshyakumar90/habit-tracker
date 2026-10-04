@@ -1,71 +1,37 @@
 import { useState } from 'react';
-import { Modal, Pressable, Share, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as Clipboard from 'expo-clipboard';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Button, Card, Header, IconButton, Screen } from '../components/ui/Primitives';
 import { useHabitly } from '../features/app/AppProvider';
 import { exportLocalData } from '../database/repositories';
+import { requestReminderPermission } from '../services/notifications';
 import { palette } from '../theme/tokens';
 
+type Panel='sync'|'export'|'notifications'|null;
 export default function Settings() {
-  const { profileName, theme, accent, setPreference } = useHabitly();
-  const [editingName, setEditingName] = useState(false);
-  const [name, setName] = useState(profileName);
-  const exportData = async () => {
-    const data = await exportLocalData();
-    await Share.share({ title: 'Habitly data export', message: JSON.stringify(data, null, 2) });
-  };
-  const saveName = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    await setPreference('profileName', trimmed);
-    setEditingName(false);
-  };
-
-  return (
-    <Screen>
-      <Header title="Settings" subtitle="Make Habitly feel like yours." right={<IconButton label="‹" accessibilityLabel="Go back" onPress={() => router.back()} />} />
-      <Card style={{ gap: 2 }}>
-        <Text style={eyebrow}>PROFILE</Text>
-        <SettingRow icon="👤" title="Name" value={profileName} onPress={() => { setName(profileName); setEditingName(true); }} />
-      </Card>
-      <Card style={{ gap: 3 }}>
-        <Text style={eyebrow}>APPEARANCE</Text>
-        <Text style={label}>Theme</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          {['system', 'light', 'dark'].map(option => <Button key={option} label={option[0].toUpperCase() + option.slice(1)} secondary={theme !== option} onPress={() => void setPreference('theme', option)} style={{ flex: 1, minHeight: 43, paddingHorizontal: 8 }} />)}
-        </View>
-        <Text style={[label, { marginTop: 12 }]}>Accent color</Text>
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 7 }}>
-          {['#8068EA', '#568CEB', '#51A77A', '#F29B48', '#E27C9C'].map(color => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`Set accent ${color}`} onPress={() => void setPreference('accent', color)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: color, borderWidth: accent === color ? 3 : 0, borderColor: palette.ink }} />)}
-        </View>
-      </Card>
-      <Card style={{ gap: 2 }}>
-        <Text style={eyebrow}>DATA & PRIVACY</Text>
-        <SettingRow icon="☁️" title="Data & Sync" value="On this device" onPress={() => void Share.share({ message: 'Your habits and tasks are saved locally and available offline. Cloud backup is not configured.' })} />
-        <SettingRow icon="📦" title="Export data" onPress={() => void exportData()} />
-        <SettingRow icon="🔔" title="Notifications" value="Task reminders" onPress={() => void Share.share({ message: 'Task reminders are scheduled locally on this device. Habit reminders are not available yet.' })} />
-      </Card>
-      <Card>
-        <Text style={{ fontWeight: '800', color: palette.ink }}>Guest profile</Text>
-        <Text style={{ fontSize: 13, color: palette.muted, lineHeight: 20, marginTop: 6 }}>Your habits and tasks are saved offline on this device. Account sign-in and cloud backup need service credentials.</Text>
-      </Card>
-      <Text style={{ textAlign: 'center', color: palette.muted, fontSize: 12 }}>Habitly · v1.0.0</Text>
-      <Modal visible={editingName} animationType="slide" transparent onRequestClose={() => setEditingName(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: palette.overlay }}>
-          <View style={{ backgroundColor: palette.canvas, padding: 23, borderTopLeftRadius: 27, borderTopRightRadius: 27, gap: 14 }}>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: palette.ink }}>Your name</Text>
-            <TextInput autoFocus value={name} onChangeText={setName} maxLength={50} placeholder="Name" style={{ height: 52, backgroundColor: palette.input, borderRadius: 15, paddingHorizontal: 14, color: palette.ink }} />
-            <View style={{ flexDirection: 'row', gap: 10 }}><Button label="Cancel" secondary onPress={() => setEditingName(false)} style={{ flex: 1 }} /><Button label="Save" onPress={() => void saveName()} style={{ flex: 1 }} /></View>
-          </View>
-        </View>
-      </Modal>
-    </Screen>
-  );
+  const { profileName, theme, accent, habits, tasks, setPreference } = useHabitly();
+  const [editingName, setEditingName] = useState(false);const [name,setName]=useState(profileName);const [panel,setPanel]=useState<Panel>(null);const [message,setMessage]=useState('');
+  const saveName=async()=>{if(name.trim()){await setPreference('profileName',name.trim());setEditingName(false)}};
+  const exportJson=async()=>JSON.stringify(await exportLocalData(),null,2);
+  const copyData=async()=>{await Clipboard.setStringAsync(await exportJson());setMessage('JSON copied to your clipboard.')};
+  const shareData=async()=>{try{const json=await exportJson();const uri=`${FileSystem.cacheDirectory}habitly-export-${new Date().toISOString().slice(0,10)}.json`;await FileSystem.writeAsStringAsync(uri,json,{encoding:FileSystem.EncodingType.UTF8});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(uri,{mimeType:'application/json',dialogTitle:'Export Habitly data'});else setMessage('The JSON export was saved in the app cache, but sharing is unavailable on this device.')}catch(e){setMessage(e instanceof Error?e.message:'Could not export Habitly data.')}};
+  const enabledCount=habits.filter(h=>h.reminderAt&&!h.archived).length+tasks.filter(t=>t.reminderAt&&!t.completed).length;
+  const panelTitle=panel==='sync'?'Data & Sync':panel==='export'?'Export data':'Notifications';
+  const panelCopy=panel==='sync'?'Your habits, check-ins, tasks, and preferences are stored on this device. Cloud sync is not configured yet.':panel==='notifications'?`${enabledCount} reminders are scheduled locally on this device. Notification appearance is controlled by Android or iOS.`:'Create a portable JSON copy of your habits, history, tasks, and preferences.';
+  return <Screen>
+    <Header title="Settings" subtitle="Make Habitly feel like yours." right={<IconButton icon="arrow-left" accessibilityLabel="Go back" onPress={()=>router.back()}/>} />
+    <Card style={{gap:2}}><Text style={eyebrow()}>PROFILE</Text><SettingRow icon="account-outline" title="Name" value={profileName} onPress={()=>{setName(profileName);setEditingName(true)}}/></Card>
+    <Card style={{gap:3}}><Text style={eyebrow()}>APPEARANCE</Text><Text style={label()}>Theme</Text><View style={{flexDirection:'row',gap:8,marginTop:6}}>{['system','light','dark'].map(option=><Button key={option} label={option[0].toUpperCase()+option.slice(1)} secondary={theme!==option} onPress={()=>void setPreference('theme',option)} style={{flex:1,minHeight:43,paddingHorizontal:8}}/>)}</View><Text style={[label(),{marginTop:12}]}>Accent color</Text><View style={{flexDirection:'row',gap:12,marginTop:8}}>{['#8068EA','#568CEB','#51A77A','#F29B48','#E27C9C'].map(color=><Pressable key={color} accessibilityRole="button" accessibilityState={{selected:accent===color}} accessibilityLabel={`Set accent ${color}`} onPress={()=>void setPreference('accent',color)} style={{width:34,height:34,borderRadius:17,backgroundColor:color,borderWidth:accent===color?3:1,borderColor:accent===color?palette.ink:palette.line,alignItems:'center',justifyContent:'center'}}>{accent===color&&<MaterialCommunityIcons name="check" size={17} color="white"/>}</Pressable>)}</View></Card>
+    <Card style={{gap:2}}><Text style={eyebrow()}>DATA & PRIVACY</Text><SettingRow icon="database-outline" title="Data & Sync" value="On this device" onPress={()=>{setMessage('');setPanel('sync')}}/><SettingRow icon="export-variant" title="Export data" onPress={()=>{setMessage('');setPanel('export')}}/><SettingRow icon="bell-outline" title="Notifications" value={`${enabledCount} scheduled`} onPress={()=>{setMessage('');setPanel('notifications')}}/></Card>
+    <Card><Text style={{fontWeight:'800',color:palette.ink}}>Guest profile</Text><Text style={{fontSize:13,color:palette.muted,lineHeight:20,marginTop:6}}>Your habits and tasks are saved offline on this device. Account sign-in and cloud backup need service credentials.</Text></Card>
+    <Text style={{textAlign:'center',color:palette.muted,fontSize:12}}>Habitly · v1.0.0</Text>
+    <Modal visible={editingName} animationType="slide" transparent statusBarTranslucent onRequestClose={()=>setEditingName(false)}><View style={scrim()}><View style={sheet()}><Text style={{fontSize:22,fontWeight:'800',color:palette.ink}}>Your name</Text><TextInput autoFocus value={name} onChangeText={setName} maxLength={50} placeholder="Name" placeholderTextColor={palette.muted} style={input()}/><View style={{flexDirection:'row',gap:10}}><Button label="Cancel" secondary onPress={()=>setEditingName(false)} style={{flex:1}}/><Button label="Save" onPress={()=>void saveName()} style={{flex:1}}/></View></View></View></Modal>
+    <Modal visible={!!panel} animationType="slide" transparent statusBarTranslucent onRequestClose={()=>setPanel(null)}><View style={scrim()}><View style={sheet()}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{fontSize:21,fontWeight:'800',color:palette.ink}}>{panelTitle}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={()=>setPanel(null)} style={{padding:8}}><MaterialCommunityIcons name="close" size={23} color={palette.muted}/></Pressable></View><Text style={{fontSize:14,lineHeight:21,color:palette.muted}}>{panelCopy}</Text>{panel==='export'&&<><Button label="Share JSON file" onPress={()=>void shareData()}/><Button label="Copy JSON" secondary onPress={()=>void copyData()}/></>}{panel==='notifications'&&<Button label="Enable notifications" onPress={()=>void requestReminderPermission().then(ok=>setMessage(ok?'Notifications are enabled.':'Notification permission was not granted.'))}/>} {!!message&&<Text accessibilityRole="alert" style={{fontSize:13,color:palette.purple}}>{message}</Text>}<Button label="Done" secondary onPress={()=>setPanel(null)}/></View></View></Modal>
+  </Screen>;
 }
-
-function SettingRow({ icon, title, value, onPress }: { icon: string; title: string; value?: string; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 10 }}><Text style={{ fontSize: 17 }}>{icon}</Text><Text style={{ flex: 1, color: palette.ink, fontSize: 14, fontWeight: '600' }}>{title}</Text>{value && <Text style={{ color: palette.muted, fontSize: 12 }}>{value}</Text>}<Text style={{ color: palette.muted, fontSize: 20 }}>›</Text></Pressable>;
-}
-
-const eyebrow = { fontSize: 12, color: palette.muted } as const;
-const label = { fontSize: 14, color: palette.ink, marginTop: 8 } as const;
+function SettingRow({icon,title,value,onPress}:{icon:string;title:string;value?:string;onPress:()=>void}){return <Pressable accessibilityRole="button" onPress={onPress} style={{minHeight:52,flexDirection:'row',alignItems:'center',paddingVertical:11,gap:11}}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color={palette.purple}/><Text style={{flex:1,color:palette.ink,fontSize:14,fontWeight:'600'}}>{title}</Text>{value&&<Text style={{color:palette.muted,fontSize:12}}>{value}</Text>}<MaterialCommunityIcons name="chevron-right" size={20} color={palette.muted}/></Pressable>}
+const eyebrow=()=>({fontSize:12,color:palette.muted});const label=()=>({fontSize:14,color:palette.ink,marginTop:8});const input=()=>({height:52,backgroundColor:palette.input,borderRadius:15,paddingHorizontal:14,color:palette.ink});const scrim=()=>({flex:1,justifyContent:'flex-end' as const,backgroundColor:palette.overlay});const sheet=()=>({backgroundColor:palette.canvas,padding:23,paddingBottom:34,borderTopLeftRadius:27,borderTopRightRadius:27,gap:14});
