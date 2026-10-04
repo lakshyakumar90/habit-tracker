@@ -26,6 +26,32 @@ export async function requestReminderPermission() {
   return result.granted;
 }
 
+export async function getReminderPermissionStatus() {
+  if (Platform.OS === 'web') return { granted: false, canAskAgain: false };
+  const permission = await Notifications.getPermissionsAsync();
+  return { granted: permission.granted, canAskAgain: permission.canAskAgain };
+}
+
+export async function sendTestReminder() {
+  if (Platform.OS === 'web') throw new Error('Local reminders are available in the Android and iOS app.');
+  if (!await requestReminderPermission()) {
+    throw new Error('Notifications are disabled. Allow them in your device settings, then try again.');
+  }
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Habitly reminder test',
+      body: 'Notifications are working on this device.',
+      data: { entityType: 'test' },
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: new Date(Date.now() + 5_000),
+      ...(Platform.OS === 'android' ? { channelId: 'habitly-reminders' } : {}),
+    },
+  });
+}
+
 export async function cancelEntityReminders(taskId: string) {
   if (Platform.OS === 'web') return;
   const pending = await Notifications.getAllScheduledNotificationsAsync();

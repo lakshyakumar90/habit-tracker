@@ -1,14 +1,16 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Modal, PanResponder, Pressable, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Button } from './Primitives';
 import { palette } from '../../theme/tokens';
 import { dateKey } from '../../utils/dates';
+import { useHabitly } from '../../features/app/AppProvider';
 
 type CalendarProps={visible:boolean;value:string;title?:string;onClose:()=>void;onSelect:(date:string)=>void};
 export function CalendarDialog(props:CalendarProps){return props.visible?<CalendarContent key={props.value} {...props}/>:null}
 function CalendarContent({ visible, value, title = 'Choose a date', onClose, onSelect }: CalendarProps) {
+  useHabitly();
   const selected = new Date(`${value}T12:00:00`);
   const [month, setMonth] = useState(new Date(selected.getFullYear(), selected.getMonth(), 1));
   const days = useMemo(() => {
@@ -33,14 +35,31 @@ function CalendarContent({ visible, value, title = 'Choose a date', onClose, onS
 type TimeProps={visible:boolean;value:string;title?:string;onClose:()=>void;onSelect:(time:string)=>void};
 export function TimeDialog(props:TimeProps){return props.visible?<TimePicker key={props.value} {...props}/>:null}
 function TimePicker({ visible, value, title = 'Reminder time', onClose, onSelect }: TimeProps) {
-  const [hour,setHour]=useState(value.split(':')[0]||'09');const [minute,setMinute]=useState(value.split(':')[1]||'00');
-  const bounded=(raw:string,max:number)=>{const clean=raw.replace(/\D/g,'').slice(0,2);return clean===''?clean:String(Math.min(max,Number(clean))).padStart(2,'0')};
-  const delta=(part:'hour'|'minute',amount:number)=>{const num=Number(part==='hour'?hour:minute);const next=part==='hour'?(num+amount+24)%24:(num+amount+60)%60;(part==='hour'?setHour:setMinute)(String(next).padStart(2,'0'));};
-  return <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}><View style={{flex:1,justifyContent:'flex-end',backgroundColor:palette.overlay}}><Animated.View entering={FadeInUp.duration(230)} style={{backgroundColor:palette.canvas,borderTopLeftRadius:28,borderTopRightRadius:28,padding:22,gap:18}}>
-    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><View><Text style={{color:palette.ink,fontSize:20,fontWeight:'800'}}>{title}</Text><Text style={{color:palette.muted,marginTop:3}}>Choose any hour and minute</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Close time picker" onPress={onClose} style={closeButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink}/></Pressable></View>
-    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10}}>{([['hour',hour],['minute',minute]] as const).map(([part,val])=><View key={part} style={{alignItems:'center',gap:8}}><Pressable accessibilityLabel={`Increase ${part}`} onPress={()=>delta(part,part==='hour'?1:5)} style={navButton()}><MaterialCommunityIcons name="chevron-up" size={24} color={palette.ink}/></Pressable><TextInput accessibilityLabel={part} value={val} onChangeText={raw=>(part==='hour'?setHour:setMinute)(bounded(raw,part==='hour'?23:59))} keyboardType="number-pad" maxLength={2} selectTextOnFocus style={{width:86,height:64,borderRadius:18,backgroundColor:palette.input,color:palette.ink,fontSize:29,fontWeight:'800',textAlign:'center'}}/><Text style={{color:palette.muted,fontSize:12}}>{part==='hour'?'HOUR':'MINUTE'}</Text><Pressable accessibilityLabel={`Decrease ${part}`} onPress={()=>delta(part,part==='hour'?-1:-5)} style={navButton()}><MaterialCommunityIcons name="chevron-down" size={24} color={palette.ink}/></Pressable></View>)}<Text style={{fontSize:32,fontWeight:'800',color:palette.muted,marginBottom:22}}>:</Text><Text style={{fontSize:14,fontWeight:'700',color:palette.ink,marginBottom:22}}>24H</Text></View>
-    <Button label="Set reminder" onPress={()=>{onSelect(`${String(Number(hour)||0).padStart(2,'0')}:${String(Number(minute)||0).padStart(2,'0')}`);onClose();}}/>
+  useHabitly();
+  const [hour24,setHour24]=useState(()=>Number(value.split(':')[0]||9));
+  const [minute,setMinute]=useState(()=>Number(value.split(':')[1]||0));
+  const hour12=hour24%12||12;
+  const period=hour24>=12?'PM':'AM';
+  const setHour12=(next:number)=>setHour24((next%12)+(period==='PM'?12:0));
+  const setPeriod=(next:'AM'|'PM')=>setHour24((hour24%12)+(next==='PM'?12:0));
+  return <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}><View style={{flex:1,justifyContent:'flex-end',backgroundColor:palette.overlay}}><Animated.View entering={FadeInUp.duration(230)} style={{backgroundColor:palette.canvas,borderTopLeftRadius:28,borderTopRightRadius:28,padding:22,paddingBottom:28,gap:17}}>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><View><Text style={{color:palette.ink,fontSize:20,fontWeight:'800'}}>{title}</Text><Text style={{color:palette.muted,marginTop:3,fontSize:13}}>Set any time of day</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Close time picker" onPress={onClose} style={closeButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink}/></Pressable></View>
+    <View style={{alignItems:'center',gap:14}}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:5}}><Text style={{fontSize:40,fontWeight:'800',letterSpacing:-1,color:palette.ink}}>{hour12}</Text><Text style={{fontSize:38,fontWeight:'700',color:palette.muted}}>:</Text><Text style={{fontSize:40,fontWeight:'800',letterSpacing:-1,color:palette.ink}}>{String(minute).padStart(2,'0')}</Text><View style={{marginLeft:6,gap:4}}>{(['AM','PM'] as const).map(item=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:period===item}} onPress={()=>setPeriod(item)} style={{paddingHorizontal:11,paddingVertical:6,borderRadius:10,backgroundColor:period===item?palette.purple:palette.surfaceSoft}}><Text style={{fontSize:12,fontWeight:'800',color:period===item?palette.onPrimary:palette.muted}}>{item}</Text></Pressable>)}</View></View>
+      <TimeSlider label="HOUR" value={hour12} min={1} max={12} onChange={setHour12}/>
+      <TimeSlider label="MINUTE" value={minute} min={0} max={59} onChange={setMinute}/>
+    </View>
+    <Button label="Set reminder" onPress={()=>{onSelect(`${String(hour24).padStart(2,'0')}:${String(minute).padStart(2,'0')}`);onClose();}}/>
   </Animated.View></View></Modal>;
+}
+
+function TimeSlider({label,value,min,max,onChange}:{label:string;value:number;min:number;max:number;onChange:(value:number)=>void}){
+  const [width,setWidth]=useState(1);
+  const setFromX=useCallback((x:number)=>onChange(Math.min(max,Math.max(min,Math.round((Math.max(0,Math.min(width,x))/width)*(max-min)+min)))),[onChange,width,min,max]);
+  const pan=useMemo(()=>PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:e=>setFromX(e.nativeEvent.locationX),onPanResponderMove:e=>setFromX(e.nativeEvent.locationX)}),[setFromX]);
+  const ratio=(value-min)/(max-min);
+  const marks=label==='HOUR'?['1','4','7','10','12']:['00','15','30','45','59'];
+  return <View style={{width:'100%',gap:7}}><View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={{fontSize:11,fontWeight:'700',letterSpacing:.8,color:palette.muted}}>{label}</Text><Text style={{fontSize:11,color:palette.muted}}>{label==='HOUR'?'1–12':'00–59'}</Text></View><View accessibilityRole="adjustable" accessibilityLabel={`${label.toLowerCase()} slider`} accessibilityValue={{min,max,now:value}} accessibilityActions={[{name:'increment'},{name:'decrement'}]} onAccessibilityAction={e=>onChange(Math.max(min,Math.min(max,value+(e.nativeEvent.actionName==='increment'?1:-1))))} onLayout={e=>setWidth(e.nativeEvent.layout.width)} {...pan.panHandlers} style={{height:42,justifyContent:'center',paddingHorizontal:6}}><View style={{height:7,borderRadius:5,backgroundColor:palette.line,overflow:'visible'}}><View style={{width:`${ratio*100}%`,height:7,borderRadius:5,backgroundColor:palette.purple}}/><View style={{position:'absolute',left:`${ratio*100}%`,top:-8,marginLeft:-12,width:24,height:24,borderRadius:12,backgroundColor:palette.purple,borderWidth:3,borderColor:palette.canvas,elevation:2}}/></View></View><View style={{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:4}}>{marks.map(mark=><Text key={mark} style={{fontSize:10,color:palette.muted}}>{mark}</Text>)}</View></View>;
 }
 
 const closeButton=()=>({width:44,height:44,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:palette.surfaceSoft} as const);
