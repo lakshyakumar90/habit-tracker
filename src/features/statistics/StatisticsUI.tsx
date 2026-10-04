@@ -5,7 +5,7 @@ import { useHabitly } from '../app/AppProvider';
 
 export function StatTile({ icon, value, label, accent = palette.purple }: { icon: string; value: string; label: string; accent?: string }) {
   useHabitly();
-  return <View style={{ flex: 1, minWidth: 74, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, gap: 7 }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color={accent} /><Text numberOfLines={1} style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>{value}</Text><Text numberOfLines={2} style={{ color: palette.muted, fontSize: 11, lineHeight: 15 }}>{label}</Text></View>;
+  return <View style={{ flex: 1, minWidth: 74, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, gap: 7 }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color={accent} /><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>{value}</Text><Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.82} android_hyphenationFrequency="none" style={{ color: palette.muted, fontSize: 11, lineHeight: 15 }}>{label}</Text></View>;
 }
 
 export function BarChart({ values, labels, color = palette.purple, suffix = '' }: { values: number[]; labels: string[]; color?: string; suffix?: string }) {

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
@@ -37,7 +37,7 @@ export default function Habits() {
     // Reanimated values are intentionally reset when the tab regains focus.
     // eslint-disable-next-line react-hooks/immutability
     focusProgress.value = 0;
-    focusProgress.value = withSpring(1, { damping: 20, stiffness: 150 });
+    focusProgress.value = withTiming(1, { duration: 200 });
     return () => {};
   }, [focusProgress]));
   const entranceStyle = useAnimatedStyle(() => ({ opacity: focusProgress.value, transform: [{ translateY: (1 - focusProgress.value) * 9 }] }));

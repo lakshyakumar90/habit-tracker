@@ -19,6 +19,11 @@ const blend = (hex: string, base: string, ratio: number) => {
   const a = rgb(hex); const b = rgb(base);
   return `#${a.map((v, i) => Math.round(v * ratio + b[i] * (1 - ratio)).toString(16).padStart(2, '0')).join('')}`;
 };
+const luminance = (hex: string) => {
+  const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
+    .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2);
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+};
 export const setPaletteMode = (mode: 'light' | 'dark') => { current = mode; };
 export const setPaletteAccent = (color: string) => { if (/^#[\da-f]{6}$/i.test(color)) accent = color; };
 export const palette = new Proxy(light, {
@@ -27,6 +32,10 @@ export const palette = new Proxy(light, {
     if (key === 'purple') return current === 'dark' ? blend(accent, '#FFFFFF', 0.76) : accent;
     if (key === 'purpleSoft') return blend(accent, tokens.canvas, 0.18);
     if (key === 'heat4') return accent;
+    if (key === 'onPrimary') {
+      const background = current === 'dark' ? blend(accent, '#FFFFFF', 0.76) : accent;
+      return luminance(background) > 0.18 ? '#211E2B' : '#FFFFFF';
+    }
     return Reflect.get(tokens, key);
   },
 });

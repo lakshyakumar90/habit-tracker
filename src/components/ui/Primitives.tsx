@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { palette } from '../../theme/tokens';
@@ -10,9 +10,9 @@ import { useHabitly } from '../../features/app/AppProvider';
 export function Screen({children,style,safeBottom=true}:{children:React.ReactNode;style?:ViewStyle;safeBottom?:boolean}) {
   useHabitly();
   const progress=useSharedValue(0);
-  // Reanimated shared values intentionally reset and spring when a tab gains focus.
+  // A short, restrained entrance keeps tab changes smooth without a spring bounce.
   // eslint-disable-next-line react-hooks/immutability
-  useFocusEffect(useCallback(()=>{progress.value=0;progress.value=withSpring(1,{damping:20,stiffness:150});return()=>{}},[progress]));
+  useFocusEffect(useCallback(()=>{progress.value=0;progress.value=withTiming(1,{duration:200});return()=>{}},[progress]));
   const motion=useAnimatedStyle(()=>({opacity:progress.value,transform:[{translateY:(1-progress.value)*9}]}));
   const edges=safeBottom?['top','bottom','left','right'] as const:['top','left','right'] as const;
   return <SafeAreaView edges={edges} style={{flex:1,backgroundColor:palette.canvas}}><Animated.ScrollView style={[{flex:1},motion]} contentContainerStyle={[styles.screen,!safeBottom&&{paddingBottom:104},style]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">{children}</Animated.ScrollView></SafeAreaView>;
@@ -31,9 +31,9 @@ export function Button({label,onPress,secondary,style}:{label:string;onPress:()=
   const scale=useSharedValue(1);const motion=useAnimatedStyle(()=>({transform:[{scale:scale.value}]}));
   // Reanimated shared values are intentionally updated from press callbacks.
   // eslint-disable-next-line react-hooks/immutability
-  const pressIn=()=>{scale.value=withSpring(.97)};
+  const pressIn=()=>{scale.value=withTiming(.97,{duration:90})};
   // eslint-disable-next-line react-hooks/immutability
-  const pressOut=()=>{scale.value=withSpring(1)};
+  const pressOut=()=>{scale.value=withTiming(1,{duration:130})};
   return <Animated.View style={[style,motion]}><Pressable accessibilityRole="button" onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={[styles.button,{backgroundColor:secondary?palette.purpleSoft:palette.purple}]}><Text style={[styles.buttonText,{color:secondary?palette.purple:palette.onPrimary}]}>{label}</Text></Pressable></Animated.View>;
 }
 export function IconButton({icon,onPress,accessibilityLabel}:{icon:string;onPress:()=>void;accessibilityLabel:string}) {
@@ -41,9 +41,9 @@ export function IconButton({icon,onPress,accessibilityLabel}:{icon:string;onPres
   const scale=useSharedValue(1);const motion=useAnimatedStyle(()=>({transform:[{scale:scale.value}]}));
   // Reanimated shared values are intentionally updated from press callbacks.
   // eslint-disable-next-line react-hooks/immutability
-  const pressIn=()=>{scale.value=withSpring(.88)};
+  const pressIn=()=>{scale.value=withTiming(.92,{duration:90})};
   // eslint-disable-next-line react-hooks/immutability
-  const pressOut=()=>{scale.value=withSpring(1)};
+  const pressOut=()=>{scale.value=withTiming(1,{duration:130})};
   return <Animated.View style={motion}><Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={[styles.iconButton,{backgroundColor:palette.purpleSoft}]}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={22} color={palette.ink}/></Pressable></Animated.View>;
 }
 export function Header({title,subtitle,right}:{title:string;subtitle?:string;right?:React.ReactNode}) {

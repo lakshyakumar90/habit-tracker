@@ -3,7 +3,7 @@ import { Pressable, Text, View, type ViewStyle } from 'react-native';
 import type { ReactNode } from 'react';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
@@ -44,7 +44,7 @@ export default function HabitDetail() {
     // Reanimated values are intentionally reset when the detail route regains focus.
     // eslint-disable-next-line react-hooks/immutability
     focusProgress.value = 0;
-    focusProgress.value = withSpring(1, { damping: 20, stiffness: 150 });
+    focusProgress.value = withTiming(1, { duration: 200 });
     return () => {};
   }, [focusProgress]));
   const entranceStyle = useAnimatedStyle(() => ({ opacity: focusProgress.value, transform: [{ translateY: (1 - focusProgress.value) * 8 }] }));
