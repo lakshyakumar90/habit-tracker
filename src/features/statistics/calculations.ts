@@ -1,0 +1,5 @@
+import type { Habit, HabitEntry } from '../habits/types';
+import { isScheduledOn } from '../habits/domain';
+import { addDays, dateKey } from '../../utils/dates';
+export function weeklyCompletion(habits:Habit[],entries:HabitEntry[],weeksAgo=0){const end=addDays(new Date(),-7*weeksAgo);let scheduled=0,done=0;for(let offset=0;offset<7;offset++){const d=addDays(end,-offset);for(const h of habits){if(h.archived||!isScheduledOn(h,d))continue;scheduled++;if(entries.some(e=>e.habitId===h.id&&e.date===dateKey(d)&&e.completed))done++;}}return scheduled?Math.round(done/scheduled*100):0;}
+export function bestWeekday(habits:Habit[],entries:HabitEntry[]){const days=Array.from({length:7},(_,day)=>{const scheduled=habits.filter(h=>!h.archived&&h.schedule.includes(day));const keys=new Set(entries.filter(e=>e.completed&&new Date(`${e.date}T12:00:00`).getDay()===day).map(e=>e.habitId+e.date));return {day,score:scheduled.length?keys.size/scheduled.length:0};}).sort((a,b)=>b.score-a.score);return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][days[0]?.day??0];}
