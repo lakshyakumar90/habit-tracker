@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { TimeDialog } from '../components/ui/DateTimeDialogs';
 import { Screen } from '../components/ui/Primitives';
+import { SmoothSwitch } from '../components/ui/SmoothSwitch';
 import { useHabitly } from '../features/app/AppProvider';
 import { cancelAllReminders, cancelEntityReminders, cancelReminder, scheduleDailyNudge, scheduleHabitReminders } from '../services/notifications';
 import { clearLocalData, exportLocalData, habitsRepository, preferencesRepository } from '../database/repositories';
@@ -46,11 +47,33 @@ export default function Settings() {
   const exportJson = async () => JSON.stringify(await exportLocalData(), null, 2);
   const copyData = async () => { try { const Clipboard = await import('expo-clipboard'); await Clipboard.setStringAsync(await exportJson()); setMessage('JSON copied to your clipboard.'); } catch { setMessage('Clipboard is unavailable in this installed app. Use Share JSON file to export your data.'); } };
   const shareData = async () => { try { const FileSystem = await import('expo-file-system/legacy'); const Sharing = await import('expo-sharing'); const json = await exportJson(); const uri = `${FileSystem.cacheDirectory}habitly-export-${new Date().toISOString().slice(0, 10)}.json`; await FileSystem.writeAsStringAsync(uri, json, { encoding: FileSystem.EncodingType.UTF8 }); if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export Habitly data' }); else setMessage('The export file was saved, but sharing is unavailable on this device.'); } catch { setMessage('Could not create the JSON export. Try again on this device.'); } };
+  const shareCsv = async () => {
+    try {
+      const FileSystem = await import('expo-file-system/legacy');
+      const Sharing = await import('expo-sharing');
+      const data = await exportLocalData();
+      const rows: Record<string, string | number | boolean>[] = [
+        ...data.habits.map(habit => ({ record_type: 'habit', id: habit.id, name: habit.name, description: habit.description ?? '', date: '', value: '', completed: '', type: habit.type, target: habit.target, unit: habit.unit, schedule: habit.schedule.join(';'), due_time: '', priority: '', list: '', subtasks: '', created_at: habit.createdAt })),
+        ...data.habitEntries.map(entry => ({ record_type: 'check-in', id: entry.id, name: '', description: '', date: entry.date, value: entry.value, completed: entry.completed, type: '', target: '', unit: '', schedule: '', due_time: '', priority: '', list: '', subtasks: '', created_at: '', habit_id: entry.habitId })),
+        ...data.tasks.map(task => ({ record_type: 'task', id: task.id, name: task.title, description: task.notes, date: task.dueDate, value: '', completed: task.completed, type: '', target: '', unit: '', schedule: '', due_time: task.dueTime ?? '', priority: task.priority, list: task.listName, subtasks: task.subtasks.map(item => `${item.completed ? '[x]' : '[ ]'} ${item.title}`).join('; '), created_at: task.createdAt })),
+      ];
+      const columns = ['record_type', 'id', 'habit_id', 'name', 'description', 'date', 'value', 'completed', 'type', 'target', 'unit', 'schedule', 'due_time', 'priority', 'list', 'subtasks', 'created_at'];
+      const csv = [columns, ...rows.map(row => columns.map(column => row[column] ?? ''))]
+        .map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(','))
+        .join('\r\n');
+      const uri = `${FileSystem.cacheDirectory}habitly-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Export Habitly data as CSV' });
+      else setMessage('The CSV file was saved, but sharing is unavailable on this device.');
+    } catch { setMessage('Could not create the CSV export. Try again on this device.'); }
+  };
   const enabledCount = habits.filter(habit => (habit.notificationIds?.length ?? 0) > 0 && !habit.archived).length + tasks.filter(task => !!task.notificationId && !task.completed).length;
   const panelTitle = panel === 'sync' ? 'Backup & sync' : panel === 'export' ? 'Export data' : 'Notification settings';
-  const panelCopy = panel === 'sync' ? 'Your habits, check-ins, tasks, and preferences are stored on this device. Cloud sync will be available after account services are connected.' : panel === 'notifications' ? `${enabledCount} reminders are scheduled on this device.` : 'Create a portable JSON copy of your habits, history, tasks, and preferences.';
+  const panelCopy = panel === 'sync' ? 'Your habits, check-ins, tasks, and preferences are stored on this device. Cloud sync will be available after account services are connected.' : panel === 'notifications' ? `${enabledCount} reminders are scheduled on this device.` : 'Export your habits, history, and tasks as a JSON or spreadsheet-friendly CSV file.';
 
   const toggleHabitReminders = async (enabled: boolean) => {
+    const previous = habitReminders;
+    setHabitReminders(enabled);
     setWorking(true); setMessage('');
     try {
       for (const habit of habits) {
@@ -60,11 +83,13 @@ export default function Settings() {
       }
       await setPreference('habitRemindersEnabled', String(enabled)); setHabitReminders(enabled); await reload();
       setMessage(enabled ? 'Saved habit reminders are enabled.' : 'Habit reminders are paused.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update habit reminders.'); }
+    } catch (error) { setHabitReminders(previous); setMessage(error instanceof Error ? error.message : 'Could not update habit reminders.'); }
     finally { setWorking(false); }
   };
 
   const toggleDaily = async (kind: 'summary' | 'quote', enabled: boolean, time = kind === 'summary' ? summaryTime : quoteTime) => {
+    const previous = kind === 'summary' ? dailySummary : motivationalQuotes;
+    if (kind === 'summary') setDailySummary(enabled); else setMotivationalQuotes(enabled);
     const enabledKey = kind === 'summary' ? 'dailySummaryEnabled' : 'motivationalQuotesEnabled';
     const idKey = kind === 'summary' ? 'dailySummaryNotificationId' : 'motivationalQuoteNotificationId';
     const title = kind === 'summary' ? 'Your Habitly daily summary' : 'A small thought for today';
@@ -80,7 +105,7 @@ export default function Settings() {
       await setPreference(enabledKey, String(enabled));
       if (kind === 'summary') setDailySummary(enabled); else setMotivationalQuotes(enabled);
       setMessage(enabled ? `Reminder scheduled for ${formatTime(time)}.` : 'Reminder turned off.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update this reminder.'); }
+    } catch (error) { if (kind === 'summary') setDailySummary(previous); else setMotivationalQuotes(previous); setMessage(error instanceof Error ? error.message : 'Could not update this reminder.'); }
     finally { setWorking(false); }
   };
 
@@ -114,7 +139,7 @@ export default function Settings() {
     <SectionTitle title="Data" />
     <View style={groupStyle()}>
       <SettingRow icon="cloud-outline" title="Backup & sync" subtitle="Stored locally on this device" onPress={() => { setMessage(''); setPanel('sync'); }} />
-      <SettingRow icon="database-export-outline" title="Export data" subtitle="Download a JSON copy of your data" onPress={() => { setMessage(''); setPanel('export'); }} />
+      <SettingRow icon="database-export-outline" title="Export data" subtitle="Save a JSON or CSV copy of your data" onPress={() => { setMessage(''); setPanel('export'); }} />
       <SettingRow icon="bell-badge-outline" title="Notification status" subtitle={`${enabledCount} reminders scheduled`} onPress={() => void openNotifications()} />
       <SettingRow icon="delete-outline" title="Clear all data" subtitle="Delete habits, check-ins, and tasks" destructive onPress={() => setConfirmClear(true)} last />
     </View>
@@ -124,8 +149,8 @@ export default function Settings() {
     <Modal visible={editingName} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setEditingName(false)}><KeyboardAvoidingView style={scrim()} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Pressable accessibilityRole="button" accessibilityLabel="Close name editor" onPress={() => setEditingName(false)} style={StyleSheet.absoluteFill} /><View style={sheetStyle()}><Text style={{ fontSize: 21, fontWeight: '800', color: palette.ink }}>Your name</Text><TextInput autoFocus value={name} onChangeText={setName} maxLength={50} returnKeyType="done" onSubmitEditing={() => void saveName()} placeholder="Name" placeholderTextColor={palette.muted} style={inputStyle()} /><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setEditingName(false)} /><ActionButton label="Save" onPress={() => void saveName()} /></View></View></KeyboardAvoidingView></Modal>
 
     <Modal visible={!!panel} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setPanel(null)}><View style={scrim()}><Pressable accessibilityRole="button" accessibilityLabel="Close panel" onPress={() => setPanel(null)} style={StyleSheet.absoluteFill} /><View style={sheetStyle()}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ fontSize: 20, fontWeight: '800', color: palette.ink }}>{panelTitle}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setPanel(null)} style={iconButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink} /></Pressable></View><Text style={{ fontSize: 13, lineHeight: 20, color: palette.muted }}>{panelCopy}</Text>
-      {panel === 'export' && <><ActionButton label="Share JSON file" onPress={() => void shareData()} /><ActionButton label="Copy JSON" secondary onPress={() => void copyData()} /></>}
-      {panel === 'notifications' && <><View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, borderRadius: 14, backgroundColor: palette.surfaceSoft }}><MaterialCommunityIcons name={permissionGranted ? 'check-circle' : 'bell-alert-outline'} size={20} color={permissionGranted ? palette.success : palette.purple} /><Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: palette.ink }}>{permissionGranted === null ? 'Checking notification permission…' : permissionGranted ? 'Notifications are allowed on this device.' : 'Notifications are currently blocked.'}</Text></View>{!permissionGranted && <ActionButton label="Enable notifications" onPress={() => void enableNotifications()} />}{permissionGranted && <ActionButton label={testingNotification ? 'Scheduling…' : 'Send test notification'} onPress={() => void testNotification()} />}{permissionGranted === false && !canAskAgain && <ActionButton label="Open device settings" secondary onPress={() => void Linking.openSettings()} />}</>}
+      {panel === 'export' && <><ActionButton label="Share JSON file" onPress={() => void shareData()} /><ActionButton label="Share CSV file" secondary onPress={() => void shareCsv()} /><ActionButton label="Copy JSON" secondary onPress={() => void copyData()} /></>}
+      {panel === 'notifications' && <><View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, borderRadius: 14, backgroundColor: palette.surfaceSoft }}><MaterialCommunityIcons name={permissionGranted ? 'check-circle' : 'bell-alert-outline'} size={20} color={permissionGranted ? palette.success : palette.purple} /><Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: palette.ink }}>{permissionGranted === null ? 'Checking notification permission…' : permissionGranted ? 'Notifications are allowed on this device.' : 'Notifications are currently blocked.'}</Text></View>{permissionGranted === false && <ActionButton label="Enable notifications" onPress={() => void enableNotifications()} />}{permissionGranted && <ActionButton label={testingNotification ? 'Scheduling…' : 'Send test notification'} onPress={() => void testNotification()} />}{permissionGranted === false && !canAskAgain && <ActionButton label="Open device settings" secondary onPress={() => void Linking.openSettings()} />}</>}
       {!!message && <Text accessibilityRole="alert" style={{ fontSize: 12, color: palette.purple }}>{message}</Text>}<ActionButton label="Done" secondary onPress={() => setPanel(null)} /></View></View></Modal>
 
     <Modal visible={confirmClear} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setConfirmClear(false)}><View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }}><Pressable accessibilityRole="button" accessibilityLabel="Close confirmation" onPress={() => setConfirmClear(false)} style={StyleSheet.absoluteFill} /><View style={{ backgroundColor: palette.card, padding: 20, borderRadius: 24, gap: 12 }}><MaterialCommunityIcons name="alert-circle-outline" size={30} color={palette.danger} /><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Clear all local data?</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This permanently deletes your habits, history, and tasks from this device. Your appearance settings will return to their defaults.</Text><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setConfirmClear(false)} /><ActionButton label={working ? 'Clearing…' : 'Delete data'} destructive onPress={() => void clearData()} /></View></View></View></Modal>
@@ -134,8 +159,8 @@ export default function Settings() {
 }
 
 function SectionTitle({ title }: { title: string }) { return <Text style={{ color: palette.ink, fontSize: 16, fontWeight: '700', marginBottom: -8 }}>{title}</Text>; }
-function ToggleRow({ icon, title, subtitle, value, onChange, disabled = false }: { icon: string; title: string; subtitle: string; value: boolean; onChange: (next: boolean) => void; disabled?: boolean }) { return <View style={rowStyle()}><RowIcon icon={icon} /><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={rowTitle()}>{title}</Text><Text numberOfLines={2} style={rowSubtitle()}>{subtitle}</Text></View><Switch value={value} disabled={disabled} onValueChange={onChange} trackColor={{ false: palette.line, true: palette.purple }} thumbColor={palette.card} /></View>; }
-function TimeRow({ icon, title, subtitle, value, time, onToggle, onTime, disabled, last }: { icon: string; title: string; subtitle: string; value: boolean; time: string; onToggle: (next: boolean) => void; onTime: () => void; disabled: boolean; last?: boolean }) { return <View style={[rowStyle(), !last && { borderBottomWidth: 1, borderColor: palette.line }]}><RowIcon icon={icon} /><View style={{ flex: 1 }}><Text style={rowTitle()}>{title}</Text><Text style={rowSubtitle()}>{subtitle}</Text><Pressable accessibilityRole="button" onPress={onTime} style={{ alignSelf: 'flex-start', marginTop: 6 }}><Text style={{ color: palette.purple, fontSize: 11, fontWeight: '700' }}>At {formatTime(time)}</Text></Pressable></View><Switch value={value} disabled={disabled} onValueChange={onToggle} trackColor={{ false: palette.line, true: palette.purple }} thumbColor={palette.card} /></View>; }
+function ToggleRow({ icon, title, subtitle, value, onChange, disabled = false }: { icon: string; title: string; subtitle: string; value: boolean; onChange: (next: boolean) => void; disabled?: boolean }) { return <View style={rowStyle()}><RowIcon icon={icon} /><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={rowTitle()}>{title}</Text><Text numberOfLines={2} style={rowSubtitle()}>{subtitle}</Text></View><SmoothSwitch value={value} disabled={disabled} onChange={onChange} label={`${title} reminders`} /></View>; }
+function TimeRow({ icon, title, subtitle, value, time, onToggle, onTime, disabled, last }: { icon: string; title: string; subtitle: string; value: boolean; time: string; onToggle: (next: boolean) => void; onTime: () => void; disabled: boolean; last?: boolean }) { return <View style={[rowStyle(), !last && { borderBottomWidth: 1, borderColor: palette.line }]}><RowIcon icon={icon} /><View style={{ flex: 1 }}><Text style={rowTitle()}>{title}</Text><Text style={rowSubtitle()}>{subtitle}</Text><Pressable accessibilityRole="button" onPress={onTime} style={{ alignSelf: 'flex-start', marginTop: 6 }}><Text style={{ color: palette.purple, fontSize: 11, fontWeight: '700' }}>At {formatTime(time)}</Text></Pressable></View><SmoothSwitch value={value} disabled={disabled} onChange={onToggle} label={`${title} reminder`} /></View>; }
 function SettingRow({ icon, title, subtitle, destructive, onPress, last }: { icon: string; title: string; subtitle: string; destructive?: boolean; onPress: () => void; last?: boolean }) { return <Pressable accessibilityRole="button" onPress={onPress} style={[rowStyle(), !last && { borderBottomWidth: 1, borderColor: palette.line }]}><RowIcon icon={icon} /><View style={{ flex: 1 }}><Text style={[rowTitle(), destructive && { color: palette.danger }]}>{title}</Text><Text style={rowSubtitle()}>{subtitle}</Text></View><MaterialCommunityIcons name="chevron-right" size={20} color={palette.muted} /></Pressable>; }
 function RowIcon({ icon }: { icon: string }) { return <View style={{ width: 38, height: 38, borderRadius: 14, backgroundColor: palette.purpleSoft, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={19} color={palette.purple} /></View>; }
 function ActionButton({ label, onPress, secondary, destructive }: { label: string; onPress: () => void; secondary?: boolean; destructive?: boolean }) { return <Pressable accessibilityRole="button" onPress={onPress} style={{ flex: 1, minHeight: 47, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: destructive ? palette.danger : secondary ? palette.purpleSoft : palette.purple }}><Text style={{ color: destructive || !secondary ? palette.onPrimary : palette.purple, fontSize: 13, fontWeight: '700' }}>{label}</Text></Pressable>; }
