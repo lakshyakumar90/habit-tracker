@@ -25,7 +25,7 @@ const PRIORITIES: { value: Task['priority']; title: string; icon: string; color:
 export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }) {
   const { addTask } = useHabitly();
   const { width } = useWindowDimensions();
-  const iconCellWidth = (width - 56 - 32) / 5;
+  const iconCellWidth = (width - 64 - 32) / 5;
   const [step, setStep] = useState(1);
   const [recordId, setRecordId] = useState(task?.id);
   const [title, setTitle] = useState(task?.title ?? '');
@@ -90,7 +90,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
     <Modal visible animationType="slide" transparent statusBarTranslucent onRequestClose={goBack}>
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close task form" onPress={onClose} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
-        <SafeAreaView style={{ flex: 1, marginHorizontal: 8, marginVertical: 6, borderRadius: 25, overflow: 'hidden', backgroundColor: palette.canvas }} edges={['top', 'bottom', 'left', 'right']}>
+        <SafeAreaView style={{ flex: 1, marginHorizontal: 12, marginTop: 18, marginBottom: 6, borderRadius: 25, overflow: 'hidden', backgroundColor: palette.canvas }} edges={['top', 'bottom', 'left', 'right']}>
         <View pointerEvents="none" style={{ position: 'absolute', top: -150, right: -140, width: 300, height: 300, borderRadius: 160, backgroundColor: palette.purpleSoft }} />
         <View pointerEvents="none" style={{ position: 'absolute', bottom: -180, left: -130, width: 340, height: 340, borderRadius: 180, backgroundColor: palette.yellowSoft }} />
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
