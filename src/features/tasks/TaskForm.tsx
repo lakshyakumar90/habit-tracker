@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button } from '../../components/ui/Primitives';
+import { SmoothSwitch } from '../../components/ui/SmoothSwitch';
 import { CalendarDialog, TimeDialog } from '../../components/ui/DateTimeDialogs';
 import { useHabitly } from '../app/AppProvider';
 import type { Task, TaskDraft, TaskRepeatRule, TaskSubtask } from './types';
@@ -23,6 +24,8 @@ const PRIORITIES: { value: Task['priority']; title: string; icon: string; color:
 
 export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }) {
   const { addTask } = useHabitly();
+  const { width } = useWindowDimensions();
+  const iconCellWidth = (width - 56 - 32) / 5;
   const [step, setStep] = useState(1);
   const [recordId, setRecordId] = useState(task?.id);
   const [title, setTitle] = useState(task?.title ?? '');
@@ -84,17 +87,19 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
   };
 
   return <>
-    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={goBack}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: palette.canvas }} edges={['top', 'bottom', 'left', 'right']}>
+    <Modal visible animationType="slide" transparent statusBarTranslucent onRequestClose={goBack}>
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close task form" onPress={onClose} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+        <SafeAreaView style={{ flex: 1, marginHorizontal: 8, marginVertical: 6, borderRadius: 25, overflow: 'hidden', backgroundColor: palette.canvas }} edges={['top', 'bottom', 'left', 'right']}>
         <View pointerEvents="none" style={{ position: 'absolute', top: -150, right: -140, width: 300, height: 300, borderRadius: 160, backgroundColor: palette.purpleSoft }} />
         <View pointerEvents="none" style={{ position: 'absolute', bottom: -180, left: -130, width: 340, height: 340, borderRadius: 180, backgroundColor: palette.yellowSoft }} />
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <View style={{ paddingHorizontal: 20, paddingTop: 5, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable accessibilityRole="button" accessibilityLabel={step === 1 ? 'Close task form' : 'Previous task step'} onPress={goBack} style={roundButton()}><MaterialCommunityIcons name="arrow-left" size={22} color={palette.ink} /></Pressable>
             <View style={{ flex: 1, flexDirection: 'row', gap: 5 }}>{[1, 2, 3].map(index => <View key={index} style={{ flex: 1, height: 5, borderRadius: 4, backgroundColor: step >= index ? palette.purple : palette.line }} />)}</View>
             <Text style={{ color: palette.muted, fontSize: 13, fontWeight: '600' }}>{step}/3</Text>
           </View>
-          <ScrollView key={step} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18 }}>
+          <ScrollView key={step} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18 }}>
             <Animated.View entering={FadeInRight.duration(180)} exiting={FadeOutLeft.duration(120)} style={{ flex: 1 }}>
               <Text style={{ color: palette.ink, fontSize: 27, lineHeight: 33, fontWeight: '800', letterSpacing: -0.6 }}>{step === 1 ? task ? 'Edit task' : 'Create New Task' : step === 2 ? 'When do you want to do it?' : 'Subtasks & reminders'}</Text>
               <Text style={{ color: palette.muted, fontSize: 14, marginTop: 5, marginBottom: 19 }}>{step === 1 ? 'Break it down and make it happen.' : step === 2 ? 'Set a date, time and priority.' : 'Make it easier to complete.'}</Text>
@@ -106,7 +111,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
                 <View style={[inputShell(), { minHeight: 86, alignItems: 'flex-start', paddingTop: 12 }]}><MaterialCommunityIcons name="text-box-outline" size={19} color={palette.ink} style={{ marginTop: 1 }} /><TextInput accessibilityLabel="Task description" value={notes} onChangeText={setNotes} placeholder="Add more details..." placeholderTextColor={palette.muted} multiline maxLength={300} textAlignVertical="top" style={[input(), { minHeight: 60 }]} /></View>
 
                 <View style={sectionHeader}><FieldLabel>Choose an icon</FieldLabel><Pressable accessibilityRole="button" accessibilityState={{ expanded: showAllIcons }} onPress={() => setShowAllIcons(value => !value)}><Text style={{ color: palette.muted, fontSize: 12 }}>{showAllIcons ? 'Show less' : 'See all'}</Text></Pressable></View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 7 }}>{(showAllIcons ? ICONS : ICONS.slice(0, 5)).map(item => <Pressable key={item} accessibilityRole="radio" accessibilityState={{ selected: icon === item }} accessibilityLabel={`Task icon ${item}`} onPress={() => setIcon(item)} style={{ width: '17.6%', aspectRatio: 1, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: icon === item ? palette.purpleSoft : palette.surfaceSoft, borderWidth: icon === item ? 1.5 : 0, borderColor: palette.purple }}><MaterialCommunityIcons name={item as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={palette.ink} /></Pressable>)}</View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 7 }}>{(showAllIcons ? ICONS : ICONS.slice(0, 5)).map(item => <Pressable key={item} accessibilityRole="radio" accessibilityState={{ selected: icon === item }} accessibilityLabel={`Task icon ${item}`} onPress={() => setIcon(item)} style={{ width: iconCellWidth, height: iconCellWidth, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: icon === item ? palette.purpleSoft : palette.surfaceSoft, borderWidth: icon === item ? 1.5 : 0, borderColor: palette.purple }}><View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name={item as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={palette.ink} /></View></Pressable>)}</View>
 
                 <FieldLabel style={{ marginTop: 18 }}>Choose a color</FieldLabel>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>{COLORS.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: color === value }} accessibilityLabel={`Task color ${value}`} onPress={() => setColor(value)} style={{ width: 38, height: 38, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: value + '38', borderWidth: color === value ? 2 : 0, borderColor: value }}><View style={{ width: 25, height: 25, borderRadius: 14, backgroundColor: value }} />{color === value && <View style={{ position: 'absolute', width: 44, height: 44, borderRadius: 23, borderWidth: 1.4, borderColor: value }} />}</Pressable>)}</View>
@@ -148,7 +153,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
                 </Panel>
 
                 <Panel style={{ marginTop: 12 }}>
-                  <View style={sectionHeader}><FieldLabel>Reminders <Text style={optional()}>(optional)</Text></FieldLabel><Toggle value={remindersEnabled} label="Toggle task reminders" onPress={() => setRemindersEnabled(value => !value)} /></View>
+                  <View style={sectionHeader}><FieldLabel>Reminders <Text style={optional()}>(optional)</Text></FieldLabel><SmoothSwitch value={remindersEnabled} label="Toggle task reminders" onChange={setRemindersEnabled} /></View>
                   {remindersEnabled && <>
                     {reminders.map((offset, index) => <View key={`${offset}-${index}`} style={{ minHeight: 47, marginTop: 8, paddingHorizontal: 11, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: palette.surfaceSoft }}>
                       <MaterialCommunityIcons name="bell-outline" size={19} color={palette.purple} />
@@ -163,7 +168,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
                 <Panel style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 11 }}>
                   <View style={{ width: 43, height: 43, borderRadius: 14, backgroundColor: palette.purpleSoft, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name="autorenew" size={21} color={palette.purple} /></View>
                   <View style={{ flex: 1, gap: 2 }}><Text style={{ color: palette.ink, fontSize: 13, fontWeight: '600' }}>Set as recurring</Text><Text style={{ color: palette.muted, fontSize: 11 }}>Repeat this task automatically</Text></View>
-                  <Toggle value={repeatRule !== 'none'} label="Set task as recurring" onPress={() => setRepeatRule(rule => rule === 'none' ? 'daily' : 'none')} />
+                  <SmoothSwitch value={repeatRule !== 'none'} label="Set task as recurring" onChange={enabled => setRepeatRule(rule => enabled ? (rule === 'none' ? 'daily' : rule) : 'none')} />
                 </Panel>
               </>}
               {!!error && <Text accessibilityRole="alert" style={{ color: palette.danger, fontSize: 12, marginTop: 12 }}>{error}</Text>}
@@ -173,7 +178,8 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
             <Button label={saving ? 'Saving…' : step < 3 ? 'Continue  →' : recordId ? 'Save task  →' : 'Create Task  →'} onPress={step < 3 ? () => continueTo(step + 1) : () => void save()} style={{ width: '100%' }} />
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
     <CalendarDialog visible={calendarOpen} value={dueDate} title="Choose due date" onClose={() => setCalendarOpen(false)} onSelect={setDueDate} />
     <TimeDialog visible={timeOpen} value={dueTime ?? '17:00'} title="Due time" onClose={() => setTimeOpen(false)} onSelect={setDueTime} />
@@ -185,7 +191,6 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
 function FieldLabel({ children, style }: { children: React.ReactNode; style?: object }) { return <Text style={[{ color: palette.ink, fontSize: 14, fontWeight: '700' }, style]}>{children}</Text>; }
 function DateChoice({ label, icon, selected, onPress }: { label: string; icon: string; selected: boolean; onPress: () => void }) { return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={{ flex: 1, minHeight: 62, alignItems: 'flex-start', justifyContent: 'center', gap: 4, paddingHorizontal: 10, borderRadius: 15, borderWidth: selected ? 1.5 : 1, borderColor: selected ? palette.purple : palette.line, backgroundColor: selected ? palette.purpleSoft : palette.card }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={18} color={selected ? palette.purple : palette.ink} /><Text style={{ color: palette.ink, fontSize: 11, fontWeight: selected ? '700' : '500' }}>{label}</Text></Pressable>; }
 function Panel({ children, style }: { children: React.ReactNode; style?: object }) { return <View style={[{ padding: 13, borderRadius: 19, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card }, style]}>{children}</View>; }
-function Toggle({ value, label, onPress }: { value: boolean; label: string; onPress: () => void }) { return <Pressable accessibilityRole="switch" accessibilityState={{ checked: value }} accessibilityLabel={label} onPress={onPress} style={{ width: 46, height: 36, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: 42, height: 24, borderRadius: 14, padding: 3, justifyContent: 'center', backgroundColor: value ? palette.purple : palette.line }}><View style={{ width: 18, height: 18, borderRadius: 10, backgroundColor: '#FFFFFF', alignSelf: value ? 'flex-end' : 'flex-start' }} /></View></Pressable>; }
 function reminderLabel(offset: number) { return REMINDER_OPTIONS.find(option => option.offset === offset)?.label ?? `${offset} minutes before`; }
 function repeatIcon(rule: TaskRepeatRule) { return rule === 'none' ? 'cancel' : rule === 'daily' ? 'autorenew' : rule === 'weekly' ? 'calendar-week' : 'tune-variant'; }
 function capitalize(value: string) { return value[0].toUpperCase() + value.slice(1); }
