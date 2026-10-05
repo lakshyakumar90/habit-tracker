@@ -178,7 +178,7 @@ function OverviewView({ habit, entries, week, today, weekMetrics, streak, longes
       <DetailRow icon="clock-outline" label="Reminder" value={habit.reminderAt ? formatTime(habit.reminderAt) : 'Off'} onPress={onReminder} switchValue={Boolean(habit.reminderAt)} onSwitch={habit.reminderAt ? onReminderOff : onReminder} />
       <DetailRow icon="chart-bar" label="Habit type" value={formatHabitType(habit.type)} onPress={onEdit} last />
     </Panel>
-    {todayEntry?.value && habit.type !== 'boolean' && <Text style={{ color: palette.muted, textAlign: 'center', fontSize: 12 }}>{formatValue(habit, todayEntry)} logged today{activeToday ? '' : ' on an off day'}</Text>}
+    {todayEntry && habit.type !== 'boolean' && <Text style={{ color: palette.muted, textAlign: 'center', fontSize: 12 }}>{formatValue(habit, todayEntry)} logged today{activeToday ? '' : ' on an off day'}</Text>}
   </>;
 }
 
