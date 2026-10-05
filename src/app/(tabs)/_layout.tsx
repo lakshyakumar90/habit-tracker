@@ -24,16 +24,17 @@ const pages = [Today, Habits, Tasks, Stats, Profile];
 const paths: Href[] = tabs.map(tab => tab.path);
 
 export default function TabLayout() {
-  useHabitly();
+  const { resolvedTheme } = useHabitly();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const pathIndex = tabs.findIndex(tab => pathname.endsWith(`/${tab.name}`));
   const [lastTabIndex, setLastTabIndex] = useState(() => Math.max(0, pathIndex));
-  const selectedIndex = pathIndex >= 0 ? pathIndex : lastTabIndex;
+  const selectedIndex = lastTabIndex;
   const pager = useRef<PagerViewRef>(null);
   const currentPath = useRef(pathname);
   const currentPage = useRef(Math.max(0, pathIndex));
+  const visiblePage = useRef(Math.max(0, pathIndex));
   const pendingRoute = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useSharedValue(Math.max(0, pathIndex));
   const cellWidth = (width - 32 - 12) / tabs.length;
@@ -46,17 +47,26 @@ export default function TabLayout() {
       if (pendingRoute.current) clearTimeout(pendingRoute.current);
       return;
     }
+    visiblePage.current = pathIndex;
     progress.value = withTiming(pathIndex, { duration: 180 });
     if (currentPage.current !== pathIndex) {
       currentPage.current = pathIndex;
+      const selectionSync = setTimeout(() => setLastTabIndex(pathIndex), 0);
       pager.current?.setPage(pathIndex);
+      return () => clearTimeout(selectionSync);
     }
   }, [pathIndex, pathname, progress]);
 
   const onPageScroll = useCallback((event: PagerViewOnPageScrollEvent) => {
-    'worklet';
+    if (!tabs.some(tab => currentPath.current.endsWith(`/${tab.name}`))) return;
+    const { position, offset } = event.nativeEvent;
+    const nearest = Math.min(tabs.length - 1, position + (offset >= 0.5 ? 1 : 0));
+    if (visiblePage.current !== nearest) {
+      visiblePage.current = nearest;
+      setLastTabIndex(nearest);
+    }
     // eslint-disable-next-line react-hooks/immutability
-    progress.value = event.nativeEvent.position + event.nativeEvent.offset;
+    progress.value = position + offset;
   }, [progress]);
 
   const onPageSelected = useCallback((event: PagerViewOnPageSelectedEvent) => {
@@ -64,6 +74,7 @@ export default function TabLayout() {
     const onTabRoute = tabs.some(tab => currentPath.current.endsWith(`/${tab.name}`));
     if (!tabs[index] || !onTabRoute) return;
     currentPage.current = index;
+    visiblePage.current = index;
     setLastTabIndex(index);
     if (!currentPath.current.endsWith(`/${tabs[index].name}`)) {
       if (pendingRoute.current) clearTimeout(pendingRoute.current);
@@ -81,6 +92,7 @@ export default function TabLayout() {
 
   return <View style={{ flex: 1, backgroundColor: palette.canvas }}>
     <PagerView
+      key={resolvedTheme}
       ref={pager}
       initialPage={selectedIndex}
       onPageScroll={onPageScroll}

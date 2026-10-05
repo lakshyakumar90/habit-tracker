@@ -25,7 +25,22 @@ export function AppProvider({children}:{children:React.ReactNode}) {
     setEntry:async(h,v,date=dateKey())=>{const done=h.type==='boolean'?!entries.some(e=>e.habitId===h.id&&e.date===date&&e.completed):v>=h.target;await habitsRepository.setEntry(h.id,date,h.type==='boolean'?(done?1:0):v,done);await reload()},
     archiveHabit:async(id,archived)=>{await habitsRepository.archive(id,archived);if(archived){await cancelEntityReminders(id);await habitsRepository.setNotificationIds(id,[])}else{const habit=await habitsRepository.get(id);const remindersEnabled=await preferencesRepository.get('habitRemindersEnabled','true');if(habit?.reminderAt&&remindersEnabled!=='false')await habitsRepository.setNotificationIds(id,await scheduleHabitReminders(id,habit.name,habit.schedule,habit.reminderAt))}await reload()}, deleteHabit:async(id)=>{await cancelEntityReminders(id);await habitsRepository.remove(id);await reload()},
     addTask:async(draft)=>{const id=await tasksRepository.save(draft);let reminderError:string|null=null;try{const ids=await scheduleTaskNotifications(id,draft.title,draft);await tasksRepository.setNotificationIds(id,ids)}catch(error){await tasksRepository.setNotificationIds(id,[]);reminderError=error instanceof Error?error.message:'The reminder could not be scheduled.'}await reload();return {id,reminderError}}, toggleTask:async(task)=>{await tasksRepository.toggle(task);if(!task.completed){if(task.repeatRule==='none')await cancelEntityReminders(task.id)}else if(task.reminders.length){try{const ids=await scheduleTaskNotifications(task.id,task.title,task);await tasksRepository.setNotificationIds(task.id,ids)}catch{await tasksRepository.setNotificationIds(task.id,[])}}await reload()}, setTaskSubtasks:async(id,subtasks)=>{await tasksRepository.setSubtasks(id,subtasks);await reload()}, deleteTask:async(id)=>{await cancelEntityReminders(id);await tasksRepository.remove(id);await reload()},
-    setPreference:async(key,v)=>{await preferencesRepository.set(key,v);if(key==='theme')setTheme(v);if(key==='accent')setAccent(v);if(key==='profileName')setProfileName(v);if(key==='onboardingComplete')setOnboarding(v==='true');if(key==='onboardingAgeRange')setOnboardingDraft(d=>({...d,ageRange:v}));if(key==='onboardingInterests'){try{const parsed=JSON.parse(v);if(Array.isArray(parsed))setOnboardingDraft(d=>({...d,interests:parsed.filter((item):item is string=>typeof item==='string')}))}catch{/* Ignore invalid optional onboarding data. */}}if(key==='onboardingDiscovery')setOnboardingDraft(d=>({...d,discoverySource:v}));if(key==='onboardingMotivation')setOnboardingDraft(d=>({...d,motivation:v}))},
+    setPreference:async(key,v)=>{
+      if(key==='theme')setTheme(v);
+      if(key==='accent')setAccent(v);
+      try { await preferencesRepository.set(key,v); }
+      catch(error) {
+        if(key==='theme')setTheme(theme);
+        if(key==='accent')setAccent(accent);
+        throw error;
+      }
+      if(key==='profileName')setProfileName(v);
+      if(key==='onboardingComplete')setOnboarding(v==='true');
+      if(key==='onboardingAgeRange')setOnboardingDraft(d=>({...d,ageRange:v}));
+      if(key==='onboardingInterests'){try{const parsed=JSON.parse(v);if(Array.isArray(parsed))setOnboardingDraft(d=>({...d,interests:parsed.filter((item):item is string=>typeof item==='string')}))}catch{/* Ignore invalid optional onboarding data. */}}
+      if(key==='onboardingDiscovery')setOnboardingDraft(d=>({...d,discoverySource:v}));
+      if(key==='onboardingMotivation')setOnboardingDraft(d=>({...d,motivation:v}));
+    },
   }),[ready,habits,entries,tasks,profileName,theme,resolvedTheme,accent,onboardingComplete,onboardingDraft,reload]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
