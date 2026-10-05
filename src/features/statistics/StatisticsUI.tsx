@@ -11,7 +11,13 @@ export function StatTile({ icon, value, label, accent = palette.purple }: { icon
 export function BarChart({ values, labels, color = palette.purple, suffix = '' }: { values: number[]; labels: string[]; color?: string; suffix?: string }) {
   useHabitly();
   const max = Math.max(1, ...values);
-  return <View style={{ height: 142, flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingTop: 20 }}>{values.map((value, index) => <View key={`${labels[index]}-${index}`} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 7 }}><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 9 }}>{value}{suffix}</Text><View style={{ width: '72%', height: `${Math.max(4, value / max * 76)}%`, borderRadius: 7, backgroundColor: value ? color : palette.surfaceSoft, opacity: .42 + (value / max) * .58 }} /><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 9 }}>{labels[index]}</Text></View>)}</View>;
+  return <View style={{ height: 144, flexDirection: 'row', alignItems: 'stretch', gap: 8, paddingTop: 8 }}>
+    {values.map((value, index) => <View key={`${labels[index]}-${index}`} style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+      <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 9 }}>{value}{suffix}</Text>
+      <View style={{ width: 24, maxWidth: '70%', height: Math.max(4, value / max * 78), borderRadius: 7, backgroundColor: value ? color : palette.surfaceSoft, opacity: .48 + (value / max) * .52 }} />
+      <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 9 }}>{labels[index]}</Text>
+    </View>)}
+  </View>;
 }
 
 export function ProgressRing({ value, size = 86 }: { value: number; size?: number }) {

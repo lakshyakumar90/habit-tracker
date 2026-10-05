@@ -25,7 +25,7 @@ const CALENDAR_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function HabitDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habits, entries, setEntry, saveHabit, archiveHabit, deleteHabit, resolvedTheme } = useHabitly();
+  const { habits, entries, setEntry, saveHabit, archiveHabit, deleteHabit } = useHabitly();
   const habit = habits.find(item => item.id === id);
   const today = dateKey();
   const [tab, setTab] = useState<DetailTab>('Overview');
@@ -107,14 +107,14 @@ export default function HabitDetail() {
       </View>
 
       <Animated.ScrollView style={[{ flex: 1 }, entranceStyle]} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 14, gap: 15 }} showsVerticalScrollIndicator={false}>
-        {tab === 'Overview' && <OverviewView habit={habit} entries={entries} week={week} today={today} weekMetrics={weekMetrics} streak={streak} longestStreak={longestStreak} todayEntry={todayEntry} activeToday={activeToday} resolvedTheme={resolvedTheme} onDate={saveDate} onEdit={() => setShowForm(true)} onReminder={() => setTimeOpen(true)} onReminderOff={() => void updateReminder(null)} />}
+        {tab === 'Overview' && <OverviewView habit={habit} entries={entries} week={week} today={today} weekMetrics={weekMetrics} streak={streak} longestStreak={longestStreak} todayEntry={todayEntry} activeToday={activeToday} onDate={saveDate} onEdit={() => setShowForm(true)} onReminder={() => setTimeOpen(true)} onReminderOff={() => void updateReminder(null)} />}
         {tab === 'History' && <HistoryView habit={habit} entries={entries} month={month} calendar={calendar} recent={recentActivity} showAll={showAllActivity} onToggleAll={() => setShowAllActivity(value => !value)} onMonth={changeMonth} onDate={saveDate} today={today} />}
         {tab === 'Insights' && <InsightsView habit={habit} metrics={last30} trends={trends} range={chartRange} onRange={() => setRangeOpen(true)} />}
       </Animated.ScrollView>
 
-      {tab === 'Overview' && <View style={{ paddingHorizontal: 18, paddingTop: 7, paddingBottom: 7 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completedToday, disabled: !canToggleToday }} accessibilityLabel={completedToday ? 'Mark habit incomplete today' : 'Mark habit completed today'} disabled={!canToggleToday} onPress={() => saveDate(today)} style={({ pressed }) => ({ minHeight: 54, borderRadius: 28, backgroundColor: !canToggleToday ? palette.surfaceSoft : completedToday ? palette.success : palette.purple, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.91 : 1 })}>
-        <MaterialCommunityIcons name={completedToday ? 'check-circle-outline' : 'play-outline'} size={20} color={!canToggleToday ? palette.muted : completedToday ? (resolvedTheme === 'dark' ? palette.canvas : '#FFFFFF') : palette.onPrimary} />
-        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ color: !canToggleToday ? palette.muted : completedToday ? (resolvedTheme === 'dark' ? palette.canvas : '#FFFFFF') : palette.onPrimary, fontSize: 15, fontWeight: '700' }}>{completedToday ? 'Mark as Incomplete' : activeToday ? 'Mark as Completed' : habit.archived ? 'Habit archived' : 'Rest day today'}</Text>
+      {tab === 'Overview' && <View style={{ paddingHorizontal: 18, paddingTop: 7, paddingBottom: 7 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: completedToday, disabled: !canToggleToday }} accessibilityLabel={completedToday ? 'Mark habit incomplete today' : 'Mark habit completed today'} disabled={!canToggleToday} onPress={() => saveDate(today)} style={({ pressed }) => ({ minHeight: 54, borderRadius: 28, backgroundColor: !canToggleToday ? palette.surfaceSoft : palette.purple, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.91 : 1 })}>
+        <MaterialCommunityIcons name={completedToday ? 'check-circle-outline' : 'play-outline'} size={20} color={!canToggleToday ? palette.muted : palette.onPrimary} />
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ color: !canToggleToday ? palette.muted : palette.onPrimary, fontSize: 15, fontWeight: '700' }}>{completedToday ? 'Mark as Incomplete' : activeToday ? 'Mark as Completed' : habit.archived ? 'Habit archived' : 'Rest day today'}</Text>
       </Pressable></View>}
     </SafeAreaView>
 
@@ -131,9 +131,9 @@ export default function HabitDetail() {
   </View>;
 }
 
-function OverviewView({ habit, entries, week, today, weekMetrics, streak, longestStreak, todayEntry, activeToday, resolvedTheme, onDate, onEdit, onReminder, onReminderOff }: {
+function OverviewView({ habit, entries, week, today, weekMetrics, streak, longestStreak, todayEntry, activeToday, onDate, onEdit, onReminder, onReminderOff }: {
   habit: Habit; entries: HabitEntry[]; week: Date[]; today: string; weekMetrics: { completed: number; scheduled: number; rate: number };
-  streak: number; longestStreak: number; todayEntry?: HabitEntry; activeToday: boolean; resolvedTheme: 'light' | 'dark'; onDate: (date: string) => void; onEdit: () => void; onReminder: () => void; onReminderOff: () => void;
+  streak: number; longestStreak: number; todayEntry?: HabitEntry; activeToday: boolean; onDate: (date: string) => void; onEdit: () => void; onReminder: () => void; onReminderOff: () => void;
 }) {
   return <>
     <Animated.View entering={FadeInDown.duration(240)} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
