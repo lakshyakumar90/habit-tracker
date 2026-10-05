@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import PagerView, { type PagerViewOnPageScrollEvent, type PagerViewOnPageSelectedEvent, type PagerViewRef } from '@expo/ui/community/pager-view';
@@ -28,16 +28,30 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const pathname = usePathname();
-  const routeIndex = Math.max(0, tabs.findIndex(tab => pathname.endsWith(`/${tab.name}`)));
+  const pathIndex = tabs.findIndex(tab => pathname.endsWith(`/${tab.name}`));
+  const [lastTabIndex, setLastTabIndex] = useState(() => Math.max(0, pathIndex));
+  const selectedIndex = pathIndex >= 0 ? pathIndex : lastTabIndex;
   const pager = useRef<PagerViewRef>(null);
-  const progress = useSharedValue(routeIndex);
+  const currentPath = useRef(pathname);
+  const currentPage = useRef(Math.max(0, pathIndex));
+  const pendingRoute = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progress = useSharedValue(Math.max(0, pathIndex));
   const cellWidth = (width - 32 - 12) / tabs.length;
 
   useEffect(() => {
-    pager.current?.setPage(routeIndex);
-    // The page route can change from links inside a screen; keep the pill in sync.
-    progress.value = withTiming(routeIndex, { duration: 180 });
-  }, [progress, routeIndex]);
+    currentPath.current = pathname;
+    // A detail screen is stacked above this layout. Keep its last selected tab
+    // mounted without commanding the hidden native pager to jump to Today.
+    if (pathIndex < 0) {
+      if (pendingRoute.current) clearTimeout(pendingRoute.current);
+      return;
+    }
+    progress.value = withTiming(pathIndex, { duration: 180 });
+    if (currentPage.current !== pathIndex) {
+      currentPage.current = pathIndex;
+      pager.current?.setPage(pathIndex);
+    }
+  }, [pathIndex, pathname, progress]);
 
   const onPageScroll = useCallback((event: PagerViewOnPageScrollEvent) => {
     'worklet';
@@ -47,8 +61,19 @@ export default function TabLayout() {
 
   const onPageSelected = useCallback((event: PagerViewOnPageSelectedEvent) => {
     const index = event.nativeEvent.position;
-    if (tabs[index] && !pathname.endsWith(`/${tabs[index].name}`)) router.navigate(paths[index]);
-  }, [pathname]);
+    const onTabRoute = tabs.some(tab => currentPath.current.endsWith(`/${tab.name}`));
+    if (!tabs[index] || !onTabRoute) return;
+    currentPage.current = index;
+    setLastTabIndex(index);
+    if (!currentPath.current.endsWith(`/${tabs[index].name}`)) {
+      if (pendingRoute.current) clearTimeout(pendingRoute.current);
+      pendingRoute.current = setTimeout(() => {
+        if (currentPage.current !== index || !tabs.some(tab => currentPath.current.endsWith(`/${tab.name}`))) return;
+        currentPath.current = paths[index] as string;
+        router.navigate(paths[index]);
+      }, 100);
+    }
+  }, []);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: progress.value * cellWidth }],
@@ -57,7 +82,7 @@ export default function TabLayout() {
   return <View style={{ flex: 1, backgroundColor: palette.canvas }}>
     <PagerView
       ref={pager}
-      initialPage={routeIndex}
+      initialPage={selectedIndex}
       onPageScroll={onPageScroll}
       onPageSelected={onPageSelected}
       offscreenPageLimit={1}
@@ -72,16 +97,18 @@ export default function TabLayout() {
         {tabs.map((tab, index) => <Pressable
           key={tab.name}
           accessibilityRole="tab"
-          accessibilityState={{ selected: routeIndex === index }}
+          accessibilityState={{ selected: selectedIndex === index }}
           accessibilityLabel={tab.label}
           onPress={() => {
-            if (index === routeIndex) return;
+            if (index === selectedIndex) return;
+            currentPage.current = index;
+            setLastTabIndex(index);
             pager.current?.setPage(index);
           }}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}
         >
-          <MaterialCommunityIcons name={(routeIndex === index ? tab.active : tab.inactive) as keyof typeof MaterialCommunityIcons.glyphMap} size={22} color={routeIndex === index ? palette.purple : palette.tabInactive} />
-          <Text numberOfLines={1} style={{ color: routeIndex === index ? palette.ink : palette.tabInactive, fontSize: 10, fontWeight: routeIndex === index ? '700' : '500' }}>{tab.label}</Text>
+          <MaterialCommunityIcons name={(selectedIndex === index ? tab.active : tab.inactive) as keyof typeof MaterialCommunityIcons.glyphMap} size={22} color={selectedIndex === index ? palette.purple : palette.tabInactive} />
+          <Text numberOfLines={1} style={{ color: selectedIndex === index ? palette.ink : palette.tabInactive, fontSize: 10, fontWeight: selectedIndex === index ? '700' : '500' }}>{tab.label}</Text>
         </Pressable>)}
       </View>
     </View>
