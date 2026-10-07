@@ -2,13 +2,16 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Card, Screen } from '../components/ui/Primitives';
-import { useHabitly } from '../features/app/AppProvider';
+import { useHabitlyEntries, useHabitlyHabits, useHabitlyTheme } from '../features/app/AppProvider';
 import { calculateLongestStreak, calculateStreak } from '../features/habits/domain';
+import type { HabitEntry } from '../features/habits/types';
 import { BackHeader } from '../features/statistics/StatisticsUI';
 import { palette } from '../theme/tokens';
 
 export default function Achievements() {
-  const { habits, entries } = useHabitly();
+  useHabitlyTheme();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
   const completedCount = entries.filter(entry => entry.completed).length;
   const longestStreak = Math.max(0, ...habits.map(habit => calculateLongestStreak(habit, entries)));
   const currentStreak = Math.max(0, ...habits.filter(habit => !habit.archived).map(habit => calculateStreak(habit, entries)));
@@ -33,7 +36,7 @@ export default function Achievements() {
   </Screen>;
 }
 
-function WeekMarks({ entries }: { entries: ReturnType<typeof useHabitly>['entries'] }) {
+function WeekMarks({ entries }: { entries: HabitEntry[] }) {
   const start = new Date(); start.setHours(12, 0, 0, 0); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
   const days = Array.from({ length: 7 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; return { label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][index], done: entries.some(entry => entry.date === key && entry.completed) }; });
   return <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>{days.map((day, index) => <View key={`${day.label}-${index}`} style={{ alignItems: 'center', gap: 4 }}><View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: day.done ? palette.purple : palette.purpleSoft }}><MaterialCommunityIcons name={day.done ? 'check' : 'circle-outline'} size={18} color={day.done ? palette.onPrimary : palette.muted} /></View><Text style={{ color: palette.muted, fontSize: 10 }}>{day.label}</Text></View>)}</View>;

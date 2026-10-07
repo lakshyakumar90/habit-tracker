@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Card, Screen } from '../../components/ui/Primitives';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyEntries, useHabitlyHabits, useHabitlyTheme } from '../../features/app/AppProvider';
 import { HabitForm } from '../../features/habits/HabitForm';
 import { calculateLongestStreak, calculateStreak } from '../../features/habits/domain';
 import { RANGE_OPTIONS, type RangeKey, summarizeHabit } from '../../features/statistics/analytics';
@@ -13,8 +13,10 @@ import { palette } from '../../theme/tokens';
 import { appRoute } from '../../utils/routes';
 
 export default function HabitAnalytics() {
+  useHabitlyTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habits, entries } = useHabitly();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
   const [range, setRange] = useState<RangeKey>('30 Days');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

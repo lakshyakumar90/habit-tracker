@@ -6,7 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button } from '../../components/ui/Primitives';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyTasks, useHabitlyTheme } from '../../features/app/AppProvider';
 import { TaskForm } from '../../features/tasks/TaskForm';
 import type { TaskSubtask } from '../../features/tasks/types';
 import { palette } from '../../theme/tokens';
@@ -14,7 +14,9 @@ import { dateKey, shortDate } from '../../utils/dates';
 
 export default function TaskDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { tasks, toggleTask, setTaskSubtasks, deleteTask, resolvedTheme } = useHabitly();
+  const tasks = useHabitlyTasks();
+  const { toggleTask, setTaskSubtasks, deleteTask } = useHabitlyActions();
+  const { resolvedTheme } = useHabitlyTheme();
   const task = tasks.find(item => item.id === id);
   const [formOpen, setFormOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);

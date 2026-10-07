@@ -1,14 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { TaskForm } from '../../features/tasks/TaskForm';
 import type { Task } from '../../features/tasks/types';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyProfile, useHabitlyTasks } from '../../features/app/AppProvider';
 import { calculateStreak } from '../../features/habits/domain';
 import type { Habit } from '../../features/habits/types';
 import { CelebrationModal } from '../../features/habits/CelebrationModal';
@@ -20,7 +19,11 @@ const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function Today() {
-  const { habits, entries, tasks, profileName, setEntry, toggleTask, deleteTask } = useHabitly();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
+  const tasks = useHabitlyTasks();
+  const { profileName } = useHabitlyProfile();
+  const { setEntry, toggleTask, deleteTask } = useHabitlyActions();
   const insets = useSafeAreaInsets();
   const today = dateKey();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -29,16 +32,6 @@ export default function Today() {
   const [actionTask, setActionTask] = useState<Task>();
   const [confirmDelete, setConfirmDelete] = useState<Task>();
   const [celebration, setCelebration] = useState<{ habit: Habit; streak: number }>();
-  const focusProgress = useSharedValue(0);
-
-  useFocusEffect(useCallback(() => {
-    // Reanimated values are intentionally reset when the tab regains focus.
-    // eslint-disable-next-line react-hooks/immutability
-    focusProgress.value = 0;
-    focusProgress.value = withTiming(1, { duration: 200 });
-    return () => {};
-  }, [focusProgress]));
-  const entranceStyle = useAnimatedStyle(() => ({ opacity: focusProgress.value, transform: [{ translateY: (1 - focusProgress.value) * 9 }] }));
 
   const selectedDay = new Date(`${selectedDate}T12:00:00`);
   const activeHabits = habits.filter(habit => !habit.archived && habit.schedule.includes(selectedDay.getDay()));
@@ -65,7 +58,7 @@ export default function Today() {
     const entry = entries.find(item => item.habitId === habit.id && item.date === selectedDate);
     const isCompleting = !entry?.completed;
     void Haptics.selectionAsync();
-    await setEntry(habit, entry?.completed ? 0 : habit.target, selectedDate);
+    await setEntry(habit, entry?.completed ? 0 : habit.target, selectedDate, isCompleting);
     if (isCompleting && selectedDate === today) {
       const updatedEntries = [...entries.filter(item => item.id !== entry?.id), { id: entry?.id ?? `pending-${habit.id}-${today}`, habitId: habit.id, date: today, value: habit.target, completed: true }];
       setCelebration({ habit, streak: calculateStreak(habit, updatedEntries) });
@@ -76,7 +69,7 @@ export default function Today() {
     <View style={{ flex: 1, backgroundColor: palette.canvas, overflow: 'hidden' }}>
       <TodayBackdrop />
       <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1 }}>
-        <Animated.ScrollView style={[{ flex: 1 }, entranceStyle]} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 164, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 164, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
               <Text style={{ color: palette.ink, fontSize: 26, fontWeight: '700', letterSpacing: -0.6 }}>Good morning,</Text>
@@ -140,7 +133,7 @@ export default function Today() {
               <View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontWeight: '700', fontSize: 14 }}>A clear list for now</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 3 }}>Add a task when something needs a place.</Text></View>
             </View>
           )}
-        </Animated.ScrollView>
+        </ScrollView>
       </SafeAreaView>
 
       <Pressable accessibilityRole="button" accessibilityLabel="Add task" onPress={openCreateTask} style={{ position: 'absolute', right: 27, bottom: Math.max(insets.bottom, 8) + 84, width: 58, height: 58, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.purple, elevation: 8, shadowColor: palette.purple, shadowOpacity: 0.26, shadowRadius: 13, shadowOffset: { width: 0, height: 6 } }}>
@@ -200,7 +193,7 @@ function SectionHeading({ title, action, onPress }: { title: string; action: str
 }
 
 function TodayHabitRow({ habit, date, last, onToggle, onOpen }: { habit: Habit; date: string; last: boolean; onToggle: () => void; onOpen: () => void }) {
-  const { entries } = useHabitly();
+  const entries = useHabitlyEntries();
   const entry = entries.find(item => item.habitId === habit.id && item.date === date);
   const done = Boolean(entry?.completed);
   const detail = habit.type === 'boolean' ? (done ? 'Daily habit' : 'Tap to mark complete') : `${entry?.value ?? 0} / ${habit.target} ${habit.unit}`;

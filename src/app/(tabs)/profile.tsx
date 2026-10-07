@@ -3,13 +3,15 @@ import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Card, Header, IconButton, Screen } from '../../components/ui/Primitives';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyEntries, useHabitlyHabits, useHabitlyProfile } from '../../features/app/AppProvider';
 import { calculateStreak, scheduledCompletionRate } from '../../features/habits/domain';
 import { palette } from '../../theme/tokens';
 import { appRoute } from '../../utils/routes';
 
 export default function Profile() {
-  const { profileName, habits, entries } = useHabitly();
+  const { profileName } = useHabitlyProfile();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
   const [expanded, setExpanded] = useState(false);
   const active = habits.filter(habit => !habit.archived);
   const streak = Math.max(0, ...active.map(habit => calculateStreak(habit, entries)));

@@ -1,12 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits } from '../../features/app/AppProvider';
 import { calculateStreak } from '../../features/habits/domain';
 import { HabitForm } from '../../features/habits/HabitForm';
 import type { Habit, HabitEntry } from '../../features/habits/types';
@@ -22,7 +21,9 @@ const SORTS: HabitSort[] = ['Streak', 'Week progress', 'Name A–Z'];
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function Habits() {
-  const { habits, entries, setEntry, archiveHabit, deleteHabit } = useHabitly();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
+  const { setEntry, archiveHabit, deleteHabit } = useHabitlyActions();
   const today = dateKey();
   const [filter, setFilter] = useState<HabitFilter>('All');
   const [sort, setSort] = useState<HabitSort>('Streak');
@@ -31,17 +32,6 @@ export default function Habits() {
   const [editingHabit, setEditingHabit] = useState<Habit>();
   const [actionHabit, setActionHabit] = useState<Habit>();
   const [confirmDelete, setConfirmDelete] = useState<Habit>();
-  const focusProgress = useSharedValue(0);
-
-  useFocusEffect(useCallback(() => {
-    // Reanimated values are intentionally reset when the tab regains focus.
-    // eslint-disable-next-line react-hooks/immutability
-    focusProgress.value = 0;
-    focusProgress.value = withTiming(1, { duration: 200 });
-    return () => {};
-  }, [focusProgress]));
-  const entranceStyle = useAnimatedStyle(() => ({ opacity: focusProgress.value, transform: [{ translateY: (1 - focusProgress.value) * 9 }] }));
-
   const startOfWeek = mondayOf(new Date(`${today}T12:00:00`));
   const week = Array.from({ length: 7 }, (_, index) => addDays(startOfWeek, index));
   const metrics = useMemo(() => new Map(habits.map(habit => [habit.id, getHabitMetrics(habit, entries, startOfWeek, today)])), [habits, entries, startOfWeek, today]);
@@ -61,14 +51,14 @@ export default function Habits() {
   const toggleDate = (habit: Habit, date: string) => {
     const entry = entries.find(item => item.habitId === habit.id && item.date === date);
     void Haptics.selectionAsync();
-    void setEntry(habit, entry?.completed ? 0 : habit.target, date);
+    void setEntry(habit, entry?.completed ? 0 : habit.target, date, !entry?.completed);
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.canvas, overflow: 'hidden' }}>
       <HabitsBackdrop />
       <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1 }}>
-        <Animated.ScrollView style={[{ flex: 1 }, entranceStyle]} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ color: palette.ink, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 }}>Habits</Text>
@@ -98,7 +88,7 @@ export default function Habits() {
               {filter !== 'Archived' && <Pressable accessibilityRole="button" onPress={openCreate} style={{ minHeight: 42, justifyContent: 'center', paddingHorizontal: 12 }}><Text style={{ color: palette.purple, fontWeight: '700' }}>Create your first habit</Text></Pressable>}
             </View>
           )}
-        </Animated.ScrollView>
+        </ScrollView>
       </SafeAreaView>
 
       {showForm && <HabitForm key={editingHabit?.id ?? 'new'} visible onClose={closeForm} habit={editingHabit} />}

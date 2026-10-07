@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { palette } from '../../theme/tokens';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyTheme } from '../../features/app/AppProvider';
 
 export function SmoothSwitch({ value, onChange, label, disabled = false }: { value: boolean; onChange: (value: boolean) => void; label: string; disabled?: boolean }) {
-  useHabitly();
+  useHabitlyTheme();
   const offset = useSharedValue(value ? 18 : 0);
   useEffect(() => {
     // The thumb follows the already-updated switch value with a short, direct glide.

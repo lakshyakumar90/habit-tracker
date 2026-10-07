@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Card, Header, Screen } from '../../components/ui/Primitives';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyEntries, useHabitlyHabits } from '../../features/app/AppProvider';
 import { calculateLongestStreak, calculateStreak } from '../../features/habits/domain';
 import { bestWeekday } from '../../features/statistics/calculations';
 import { BarChart, StatTile } from '../../features/statistics/StatisticsUI';
@@ -18,7 +18,8 @@ const periods: Period[] = ['This Week', 'This Month', 'This Year'];
 const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Stats() {
-  const { habits, entries } = useHabitly();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
   const [period, setPeriod] = useState<Period>('This Month');
   const [periodOpen, setPeriodOpen] = useState(false);
   const active = habits.filter(habit => !habit.archived);

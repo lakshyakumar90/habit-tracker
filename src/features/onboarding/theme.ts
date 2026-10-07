@@ -1,4 +1,4 @@
-import { useHabitly } from '../app/AppProvider';
+import { useHabitlyTheme } from '../app/AppProvider';
 
 const light = {
   dark: false,
@@ -17,6 +17,6 @@ const dark = {
 };
 
 export function useOnboardingTheme() {
-  const { resolvedTheme } = useHabitly();
+  const { resolvedTheme } = useHabitlyTheme();
   return resolvedTheme === 'dark' ? dark : light;
 }

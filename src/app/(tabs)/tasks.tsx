@@ -5,7 +5,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button, IconButton, Screen } from '../../components/ui/Primitives';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyTasks } from '../../features/app/AppProvider';
 import { TaskForm } from '../../features/tasks/TaskForm';
 import type { Task } from '../../features/tasks/types';
 import { palette } from '../../theme/tokens';
@@ -16,7 +16,8 @@ type TaskFilter = 'Today' | 'Upcoming' | 'Completed';
 const FILTERS: TaskFilter[] = ['Today', 'Upcoming', 'Completed'];
 
 export default function Tasks() {
-  const { tasks, toggleTask, deleteTask } = useHabitly();
+  const tasks = useHabitlyTasks();
+  const { toggleTask, deleteTask } = useHabitlyActions();
   const [filter, setFilter] = useState<TaskFilter>('Today');
   const [showForm, setShowForm] = useState(false);
   const [actionTask, setActionTask] = useState<Task>();

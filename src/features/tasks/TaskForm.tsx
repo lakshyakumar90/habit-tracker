@@ -7,7 +7,7 @@ import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button } from '../../components/ui/Primitives';
 import { SmoothSwitch } from '../../components/ui/SmoothSwitch';
 import { CalendarDialog, TimeDialog } from '../../components/ui/DateTimeDialogs';
-import { useHabitly } from '../app/AppProvider';
+import { useHabitlyActions } from '../app/AppProvider';
 import type { Task, TaskDraft, TaskRepeatRule, TaskSubtask } from './types';
 import { palette } from '../../theme/tokens';
 import { addDays, dateKey } from '../../utils/dates';
@@ -23,7 +23,7 @@ const PRIORITIES: { value: Task['priority']; title: string; icon: string; color:
 ];
 
 export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }) {
-  const { addTask } = useHabitly();
+  const { addTask } = useHabitlyActions();
   const { width } = useWindowDimensions();
   const iconCellWidth = (width - 64 - 32) / 5;
   const [step, setStep] = useState(1);

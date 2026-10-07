@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { TimeDialog } from '../../components/ui/DateTimeDialogs';
 import { HabitForm } from '../../features/habits/HabitForm';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyTheme } from '../../features/app/AppProvider';
 import { calculateLongestStreak, calculateStreak, heatmapLevel, isScheduledOn } from '../../features/habits/domain';
 import type { Habit, HabitEntry } from '../../features/habits/types';
 import { palette } from '../../theme/tokens';
@@ -25,7 +25,10 @@ const CALENDAR_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function HabitDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habits, entries, setEntry, saveHabit, archiveHabit, deleteHabit } = useHabitly();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
+  const { setEntry, saveHabit, archiveHabit, deleteHabit } = useHabitlyActions();
+  useHabitlyTheme();
   const habit = habits.find(item => item.id === id);
   const today = dateKey();
   const [tab, setTab] = useState<DetailTab>('Overview');
@@ -80,7 +83,7 @@ export default function HabitDetail() {
     if (date < createdOn || date > today) return;
     const completed = habitEntryMap.get(date)?.completed ?? false;
     void Haptics.selectionAsync();
-    void setEntry(habit, completed ? 0 : habit.target, date);
+    void setEntry(habit, completed ? 0 : habit.target, date, !completed);
   };
   const updateReminder = async (time: string | null) => {
     const error = await saveHabit({

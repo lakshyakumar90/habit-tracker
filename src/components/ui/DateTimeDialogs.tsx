@@ -5,12 +5,12 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Button } from './Primitives';
 import { palette } from '../../theme/tokens';
 import { dateKey } from '../../utils/dates';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyTheme } from '../../features/app/AppProvider';
 
 type CalendarProps={visible:boolean;value:string;title?:string;onClose:()=>void;onSelect:(date:string)=>void};
 export function CalendarDialog(props:CalendarProps){return props.visible?<CalendarContent key={props.value} {...props}/>:null}
 function CalendarContent({ visible, value, title = 'Choose a date', onClose, onSelect }: CalendarProps) {
-  useHabitly();
+  useHabitlyTheme();
   const selected = new Date(`${value}T12:00:00`);
   const [month, setMonth] = useState(new Date(selected.getFullYear(), selected.getMonth(), 1));
   const days = useMemo(() => {
@@ -36,7 +36,7 @@ function CalendarContent({ visible, value, title = 'Choose a date', onClose, onS
 type TimeProps={visible:boolean;value:string;title?:string;onClose:()=>void;onSelect:(time:string)=>void};
 export function TimeDialog(props:TimeProps){return props.visible?<TimePicker key={props.value} {...props}/>:null}
 function TimePicker({ visible, value, title = 'Reminder time', onClose, onSelect }: TimeProps) {
-  useHabitly();
+  useHabitlyTheme();
   const [hour24,setHour24]=useState(()=>Number(value.split(':')[0]||9));
   const [minute,setMinute]=useState(()=>Number(value.split(':')[1]||0));
   const hour12=hour24%12||12;

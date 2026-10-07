@@ -5,7 +5,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { TimeDialog } from '../components/ui/DateTimeDialogs';
 import { Screen } from '../components/ui/Primitives';
 import { SmoothSwitch } from '../components/ui/SmoothSwitch';
-import { useHabitly } from '../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyHabits, useHabitlyProfile, useHabitlyTasks, useHabitlyTheme } from '../features/app/AppProvider';
 import { cancelAllReminders, cancelEntityReminders, cancelReminder, scheduleDailyNudge, scheduleHabitReminders } from '../services/notifications';
 import { clearLocalData, exportLocalData, habitsRepository, preferencesRepository } from '../database/repositories';
 import { palette } from '../theme/tokens';
@@ -15,7 +15,11 @@ type TimeTarget = 'summary' | 'quote' | null;
 const accents = ['#8068EA', '#568CEB', '#51A77A', '#F29B48', '#E27C9C', '#E2B84C'];
 
 export default function Settings() {
-  const { profileName, theme, accent, habits, tasks, setPreference, reload } = useHabitly();
+  const { profileName } = useHabitlyProfile();
+  const { theme, accent } = useHabitlyTheme();
+  const habits = useHabitlyHabits();
+  const tasks = useHabitlyTasks();
+  const { setPreference, reload } = useHabitlyActions();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profileName);
   const [panel, setPanel] = useState<Panel>(null);

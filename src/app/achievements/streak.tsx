@@ -2,14 +2,16 @@ import { router } from 'expo-router';
 import { Pressable, Share, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Card, Screen } from '../../components/ui/Primitives';
-import { useHabitly } from '../../features/app/AppProvider';
+import { useHabitlyEntries, useHabitlyHabits, useHabitlyTheme } from '../../features/app/AppProvider';
 import { calculateLongestStreak, calculateStreak } from '../../features/habits/domain';
 import { BackHeader, StatTile } from '../../features/statistics/StatisticsUI';
 import { palette } from '../../theme/tokens';
 import { dateKey } from '../../utils/dates';
 
 export default function StreakAchievement() {
-  const { habits, entries } = useHabitly();
+  useHabitlyTheme();
+  const habits = useHabitlyHabits();
+  const entries = useHabitlyEntries();
   const ranked = habits.filter(habit => !habit.archived).map(habit => ({ habit, current: calculateStreak(habit, entries), longest: calculateLongestStreak(habit, entries) })).sort((a, b) => b.current - a.current || b.longest - a.longest);
   const best = ranked[0];
   const today = dateKey();

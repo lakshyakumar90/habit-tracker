@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import type { Habit, HabitDraft, HabitDifficulty, HabitType } from './types';
-import { useHabitly } from '../app/AppProvider';
+import { useHabitlyActions, useHabitlyTheme } from '../app/AppProvider';
 import { TimeDialog } from '../../components/ui/DateTimeDialogs';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { palette } from '../../theme/tokens';
@@ -44,7 +44,8 @@ const weekDays = [
 type FormStep = 1 | 2 | 3;
 
 export function HabitForm({ visible, onClose, habit }: { visible: boolean; onClose: () => void; habit?: Habit }) {
-  const { saveHabit, resolvedTheme } = useHabitly();
+  const { saveHabit } = useHabitlyActions();
+  const { resolvedTheme } = useHabitlyTheme();
   const [step, setStep] = useState<FormStep>(1);
   const [name, setName] = useState(habit?.name ?? '');
   const [description, setDescription] = useState(habit?.description ?? '');

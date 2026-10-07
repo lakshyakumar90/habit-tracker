@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeIn, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import { BackgroundBlobs } from '../../components/decorative/BackgroundBlobs';
-import { useHabitly } from '../app/AppProvider';
+import { useHabitlyActions, useHabitlyProfile, useHabitlyTheme } from '../app/AppProvider';
 import { useOnboardingTheme } from './theme';
 import { appRoute } from '../../utils/routes';
 import { ageRanges, discoveryOptions, interestOptions } from './types';
@@ -14,7 +14,8 @@ import { AccountActionButton, FormHeading, FriendlyFace, HabitlyMark, PrimaryAct
 const stepCount = 5;
 
 export function OnboardingFlow() {
-  const { profileName, onboardingDraft, setPreference } = useHabitly();
+  const { profileName, onboardingDraft } = useHabitlyProfile();
+  const { setPreference } = useHabitlyActions();
   const theme = useOnboardingTheme();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profileName === 'Friend' ? '' : profileName);
@@ -139,7 +140,7 @@ function NameStep({ name, onChange }: { name: string; onChange: (value: string) 
 }
 
 function AgeStep({ value, onSelect }: { value: string; onSelect: (value: string) => void }) {
-  useHabitly();
+  useHabitlyTheme();
   return <>
     <FormHeading title="What’s your age range?" description="This helps us show relevant suggestions for you." />
     <View style={{ gap: 8 }}>
@@ -221,4 +222,3 @@ function SelectionIndicator({ selected }: { selected: boolean }) {
   const theme = useOnboardingTheme();
   return <View style={{ width: 21, height: 21, borderRadius: 11, borderWidth: selected ? 0 : 1.5, borderColor: theme.line, backgroundColor: selected ? theme.purple : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{selected && <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />}</View>;
 }
-
