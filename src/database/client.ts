@@ -2,6 +2,15 @@ import * as SQLite from 'expo-sqlite';
 import { dateKey } from '../utils/dates';
 
 let opening: Promise<SQLite.SQLiteDatabase> | undefined;
+let databaseOwner: string | null = null;
+
+export function setDatabaseOwner(uid: string | null) {
+  if (uid && !/^[A-Za-z0-9_-]+$/.test(uid)) throw new Error('Invalid account identifier.');
+  if (databaseOwner === uid) return;
+  databaseOwner = uid;
+  opening = undefined;
+}
+export function getDatabaseOwner() { return databaseOwner; }
 
 export const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -11,7 +20,8 @@ export function getDatabase() {
 }
 
 async function initialize() {
-  const db = await SQLite.openDatabaseAsync('habitly.db');
+  const owner = databaseOwner;
+  const db = await SQLite.openDatabaseAsync(owner ? `habitly-${owner}.db` : 'habitly.db');
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   if ((version?.user_version ?? 0) < 1) {
@@ -68,11 +78,60 @@ async function initialize() {
       await db.execAsync(`ALTER TABLE tasks ADD COLUMN completed_date TEXT; PRAGMA user_version = 7;`);
     });
   }
+  if ((version?.user_version ?? 0) < 8) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS sync_outbox (
+        entity TEXT NOT NULL, id TEXT NOT NULL, operation TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(entity, id)
+      );
+      CREATE TABLE IF NOT EXISTS sync_runtime (id INTEGER PRIMARY KEY CHECK(id=1), importing INTEGER NOT NULL DEFAULT 0);
+      INSERT OR IGNORE INTO sync_runtime(id, importing) VALUES (1, 0);
+      CREATE TRIGGER habits_sync_insert AFTER INSERT ON habits WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('habits',new.id,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER habits_sync_update AFTER UPDATE ON habits WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0
+        AND (old.name IS NOT new.name OR old.description IS NOT new.description OR old.icon IS NOT new.icon OR old.color IS NOT new.color OR old.type IS NOT new.type OR old.difficulty IS NOT new.difficulty OR old.target IS NOT new.target OR old.unit IS NOT new.unit OR old.schedule IS NOT new.schedule OR old.reminder_at IS NOT new.reminder_at OR old.archived IS NOT new.archived) BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('habits',new.id,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER habits_sync_delete AFTER DELETE ON habits WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('habits',old.id,'delete') ON CONFLICT(entity,id) DO UPDATE SET operation='delete',revision=revision+1;
+      END;
+      CREATE TRIGGER entries_sync_insert AFTER INSERT ON habit_entries WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('entries',new.id,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER entries_sync_update AFTER UPDATE ON habit_entries WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('entries',new.id,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER entries_sync_delete AFTER DELETE ON habit_entries WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('entries',old.id,'delete') ON CONFLICT(entity,id) DO UPDATE SET operation='delete',revision=revision+1;
+      END;
+      CREATE TRIGGER tasks_sync_insert AFTER INSERT ON tasks WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('tasks',new.id,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER tasks_sync_update AFTER UPDATE ON tasks WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0
+        AND (old.title IS NOT new.title OR old.notes IS NOT new.notes OR old.due_date IS NOT new.due_date OR old.due_time IS NOT new.due_time OR old.priority IS NOT new.priority OR old.completed IS NOT new.completed OR old.completed_date IS NOT new.completed_date OR old.list_name IS NOT new.list_name OR old.subtasks IS NOT new.subtasks OR old.icon IS NOT new.icon OR old.color IS NOT new.color OR old.repeat_rule IS NOT new.repeat_rule OR old.repeat_days IS NOT new.repeat_days OR old.reminders IS NOT new.reminders) BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('tasks',new.id,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER tasks_sync_delete AFTER DELETE ON tasks WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('tasks',old.id,'delete') ON CONFLICT(entity,id) DO UPDATE SET operation='delete',revision=revision+1;
+      END;
+      CREATE TRIGGER preferences_sync_insert AFTER INSERT ON preferences WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 AND new.key NOT IN ('sampleDataSeeded') AND new.key NOT LIKE '%NotificationId' BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('preferences',new.key,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER preferences_sync_update AFTER UPDATE ON preferences WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 AND new.key NOT IN ('sampleDataSeeded') AND new.key NOT LIKE '%NotificationId' BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('preferences',new.key,'upsert') ON CONFLICT(entity,id) DO UPDATE SET operation='upsert',revision=revision+1;
+      END;
+      CREATE TRIGGER preferences_sync_delete AFTER DELETE ON preferences WHEN (SELECT importing FROM sync_runtime WHERE id=1)=0 AND old.key NOT IN ('sampleDataSeeded') AND old.key NOT LIKE '%NotificationId' BEGIN
+        INSERT INTO sync_outbox(entity,id,operation) VALUES('preferences',old.key,'delete') ON CONFLICT(entity,id) DO UPDATE SET operation='delete',revision=revision+1;
+      END;
+      PRAGMA user_version = 8;
+    `);
+  }
   const prefs = await db.getFirstAsync<{ value: string }>("SELECT value FROM preferences WHERE key = 'profileName'");
-  if (!prefs) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Friend')");
+  if (!prefs && !owner) await db.runAsync("INSERT INTO preferences (key, value) VALUES ('profileName', 'Friend')");
   const seeded = await db.getFirstAsync<{ value:string }>("SELECT value FROM preferences WHERE key = 'sampleDataSeeded'");
   const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM habits');
-  if (!seeded && !row?.count) {
+  if (!owner && !seeded && !row?.count) {
     const seeds = [
       ['Drink water', '💧', '#8570EE', 'quantity', 8, 'glasses'],
       ['Workout', '🏃', '#F6C75A', 'duration', 30, 'min'],
@@ -85,6 +144,6 @@ async function initialize() {
     await db.runAsync('INSERT INTO tasks (id,title,due_date,priority,created_at) VALUES (?,?,?,?,?)', makeId(), 'Finish assignment', dateKey(), 'high', dateKey());
     await db.runAsync('INSERT INTO tasks (id,title,due_date,priority,created_at) VALUES (?,?,?,?,?)', makeId(), 'Plan the week', dateKey(), 'medium', dateKey());
   }
-  if (!seeded) await db.runAsync("INSERT INTO preferences (key,value) VALUES ('sampleDataSeeded','true')");
+  if (!seeded && !owner) await db.runAsync("INSERT INTO preferences (key,value) VALUES ('sampleDataSeeded','true')");
   return db;
 }

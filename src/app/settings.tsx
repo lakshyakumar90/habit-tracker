@@ -7,6 +7,7 @@ import { TimeDialog } from '../components/ui/DateTimeDialogs';
 import { Screen } from '../components/ui/Primitives';
 import { SmoothSwitch } from '../components/ui/SmoothSwitch';
 import { useHabitlyActions, useHabitlyHabits, useHabitlyProfile, useHabitlyTasks, useHabitlyTheme } from '../features/app/AppProvider';
+import { useCloudAccount } from '../features/account/CloudAccountProvider';
 import { cancelAllReminders, cancelEntityReminders, cancelReminder, scheduleDailyNudge, scheduleHabitReminders } from '../services/notifications';
 import { clearLocalData, exportLocalData, habitsRepository, preferencesRepository } from '../database/repositories';
 import { palette, softAccent } from '../theme/tokens';
@@ -17,6 +18,7 @@ const accents = ['#8068EA', '#568CEB', '#51A77A', '#F29B48', '#E27C9C', '#E2B84C
 
 export default function Settings() {
   const { profileName } = useHabitlyProfile();
+  const account = useCloudAccount();
   const { accent } = useHabitlyTheme();
   const habits = useHabitlyHabits();
   const tasks = useHabitlyTasks();
@@ -83,7 +85,15 @@ export default function Settings() {
   };
   const enabledCount = habits.filter(habit => (habit.notificationIds?.length ?? 0) > 0 && !habit.archived).length + tasks.filter(task => !!task.notificationId && !task.completed).length;
   const panelTitle = panel === 'sync' ? 'Backup & sync' : panel === 'export' ? 'Export data' : 'Notification settings';
-  const panelCopy = panel === 'sync' ? 'Your habits, check-ins, tasks, and preferences are stored on this device. Cloud sync will be available after account services are connected.' : panel === 'notifications' ? `${enabledCount} reminders are scheduled on this device.` : 'Export your habits, history, and tasks as a JSON or spreadsheet-friendly CSV file.';
+  const panelCopy = panel === 'sync' ? account.user ? `Signed in as ${account.user.email ?? 'your Google account'}. Habitly saves your habits, check-ins, tasks, and settings locally and syncs them to your Firebase account when online. Google sign-in grants basic profile and email access. Status: ${account.syncStatus}.` : 'Sign in with Google to back up your habits, check-ins, tasks, and settings. Habitly requests basic Google profile and email access only.' : panel === 'notifications' ? `${enabledCount} reminders are scheduled on this device.` : 'Export your habits, history, and tasks as a JSON or spreadsheet-friendly CSV file.';
+  const changeAccount = async () => {
+    setWorking(true); setMessage('');
+    try {
+      if (account.user) { await account.signOutAccount(); router.replace('/'); }
+      else { await account.signInWithGoogle(); router.replace('/'); }
+    } catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Could not change accounts.'); }
+    finally { setWorking(false); }
+  };
 
   const toggleHabitReminders = async (enabled: boolean) => {
     const previous = habitReminders;
@@ -132,11 +142,16 @@ export default function Settings() {
   const openNotifications = async () => { setMessage(''); setPanel('notifications'); try { const Notifications = await import('expo-notifications'); const status = await Notifications.getPermissionsAsync(); setPermissionGranted(status.granted); setCanAskAgain(status.canAskAgain); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not read notification permission status.'); } };
   const enableNotifications = async () => { setMessage(''); try { const { requestReminderPermission } = await import('../services/notifications'); const granted = await requestReminderPermission(); setPermissionGranted(granted); const Notifications = await import('expo-notifications'); setCanAskAgain((await Notifications.getPermissionsAsync()).canAskAgain); setMessage(granted ? 'Notifications are enabled.' : 'Permission was not granted. Use device settings to allow notifications.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not enable notifications.'); } };
   const testNotification = async () => { setMessage(''); setTestingNotification(true); try { const { sendTestReminder } = await import('../services/notifications'); await sendTestReminder(); setPermissionGranted(true); setMessage('Test scheduled for 5 seconds from now. Keep Habitly in the background to check delivery.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not schedule a test notification.'); } finally { setTestingNotification(false); } };
-  const clearData = async () => { setWorking(true); setMessage(''); try { await cancelAllReminders(); await clearLocalData(); await reload(); setHabitReminders(true); setDailySummary(false); setMotivationalQuotes(false); setConfirmClear(false); setPanel(null); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not clear local data.'); } finally { setWorking(false); } };
+  const clearData = async () => { setWorking(true); setMessage(''); try { await cancelAllReminders(); await clearLocalData(); await reload(); if (account.user) void account.syncNow(); setHabitReminders(true); setDailySummary(false); setMotivationalQuotes(false); setConfirmClear(false); setPanel(null); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not clear local data.'); } finally { setWorking(false); } };
 
   return <View style={{ flex: 1, backgroundColor: palette.canvas }}><Screen style={{ paddingBottom: 24 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={goBack} style={iconButton()}><MaterialCommunityIcons name="arrow-left" size={21} color={palette.ink} /></Pressable><View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 29, fontWeight: '800', letterSpacing: -.5 }}>Settings</Text><Text style={{ color: palette.muted, fontSize: 13, marginTop: 2 }}>Customize your experience.</Text></View></View>
     <Pressable accessibilityRole="button" onPress={() => { setName(profileName); setEditingName(true); }} style={{ minHeight: 66, borderRadius: 20, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.line }}><RowIcon icon="account-outline" /><View style={{ flex: 1 }}><Text style={rowTitle()}>{profileName}</Text><Text style={rowSubtitle()}>Edit your profile name</Text></View><MaterialCommunityIcons name="pencil-outline" size={18} color={palette.muted} /></Pressable>
+
+    <SectionTitle title="Account" />
+    <View style={groupStyle()}>
+      <SettingRow icon={account.user ? 'account-check-outline' : 'google'} title={account.user ? account.user.email ?? 'Google account' : 'Sign in with Google'} subtitle={account.user ? `Cloud sync: ${account.syncStatus}` : 'Back up and restore your data'} onPress={() => { setMessage(''); setPanel('sync'); }} />
+    </View>
 
     <SectionTitle title="Notifications" />
     <View style={groupStyle()}>
@@ -152,7 +167,7 @@ export default function Settings() {
 
     <SectionTitle title="Data" />
     <View style={groupStyle()}>
-      <SettingRow icon="cloud-outline" title="Backup & sync" subtitle="Stored locally on this device" onPress={() => { setMessage(''); setPanel('sync'); }} />
+      <SettingRow icon="cloud-outline" title="Backup & sync" subtitle={account.user ? `Cloud sync: ${account.syncStatus}` : 'Stored locally until you sign in'} onPress={() => { setMessage(''); setPanel('sync'); }} />
       <SettingRow icon="database-export-outline" title="Export data" subtitle="Save a JSON or CSV copy of your data" onPress={() => { setMessage(''); setPanel('export'); }} />
       <SettingRow icon="bell-badge-outline" title="Notification status" subtitle={`${enabledCount} reminders scheduled`} onPress={() => void openNotifications()} />
       <SettingRow icon="delete-outline" title="Clear all data" subtitle="Delete habits, check-ins, and tasks" destructive onPress={() => setConfirmClear(true)} last />
@@ -163,11 +178,12 @@ export default function Settings() {
     <Modal visible={editingName} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setEditingName(false)}><KeyboardAvoidingView style={scrim()} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Pressable accessibilityRole="button" accessibilityLabel="Close name editor" onPress={() => setEditingName(false)} style={StyleSheet.absoluteFill} /><Animated.View entering={FadeInUp.duration(220)} style={sheetStyle()}><Text style={{ fontSize: 21, fontWeight: '800', color: palette.ink }}>Your name</Text><TextInput autoFocus value={name} onChangeText={setName} maxLength={50} returnKeyType="done" onSubmitEditing={() => void saveName()} placeholder="Name" placeholderTextColor={palette.muted} style={inputStyle()} /><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setEditingName(false)} /><ActionButton label="Save" onPress={() => void saveName()} /></View></Animated.View></KeyboardAvoidingView></Modal>
 
     <Modal visible={!!panel} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setPanel(null)}><View style={scrim()}><Pressable accessibilityRole="button" accessibilityLabel="Close panel" onPress={() => setPanel(null)} style={StyleSheet.absoluteFill} /><Animated.View entering={FadeInUp.duration(220)} style={sheetStyle()}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ fontSize: 20, fontWeight: '800', color: palette.ink }}>{panelTitle}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setPanel(null)} style={iconButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink} /></Pressable></View><Text style={{ fontSize: 13, lineHeight: 20, color: palette.muted }}>{panelCopy}</Text>
+      {panel === 'sync' && <><ActionButton label={working ? 'Please wait…' : account.user ? 'Sync now' : 'Continue with Google'} onPress={() => { if (account.user) void account.syncNow(); else void changeAccount(); }} />{account.user && <ActionButton label="Sign out" secondary onPress={() => void changeAccount()} />}</>}
       {panel === 'export' && <><ActionButton label="Share JSON file" onPress={() => void shareData()} /><ActionButton label="Share CSV file" secondary onPress={() => void shareCsv()} /><ActionButton label="Copy JSON" secondary onPress={() => void copyData()} /></>}
       {panel === 'notifications' && <><View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, borderRadius: 14, backgroundColor: palette.surfaceSoft }}><MaterialCommunityIcons name={permissionGranted ? 'check-circle' : 'bell-alert-outline'} size={20} color={permissionGranted ? palette.success : palette.purple} /><Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: palette.ink }}>{permissionGranted === null ? 'Checking notification permission…' : permissionGranted ? 'Notifications are allowed on this device.' : 'Notifications are currently blocked.'}</Text></View>{permissionGranted === false && <ActionButton label="Enable notifications" onPress={() => void enableNotifications()} />}{permissionGranted && <ActionButton label={testingNotification ? 'Scheduling…' : 'Send test notification'} onPress={() => void testNotification()} />}{permissionGranted === false && !canAskAgain && <ActionButton label="Open device settings" secondary onPress={() => void Linking.openSettings()} />}</>}
       {!!message && <Text accessibilityRole="alert" style={{ fontSize: 12, color: palette.purple }}>{message}</Text>}<ActionButton label="Done" secondary onPress={() => setPanel(null)} /></Animated.View></View></Modal>
 
-    <Modal visible={confirmClear} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setConfirmClear(false)}><View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }}><Pressable accessibilityRole="button" accessibilityLabel="Close confirmation" onPress={() => setConfirmClear(false)} style={StyleSheet.absoluteFill} /><View style={{ backgroundColor: palette.card, padding: 20, borderRadius: 24, gap: 12 }}><MaterialCommunityIcons name="alert-circle-outline" size={30} color={palette.danger} /><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Clear all local data?</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This permanently deletes your habits, history, and tasks from this device. Your appearance settings will return to their defaults.</Text><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setConfirmClear(false)} /><ActionButton label={working ? 'Clearing…' : 'Delete data'} destructive onPress={() => void clearData()} /></View></View></View></Modal>
+    <Modal visible={confirmClear} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setConfirmClear(false)}><View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }}><Pressable accessibilityRole="button" accessibilityLabel="Close confirmation" onPress={() => setConfirmClear(false)} style={StyleSheet.absoluteFill} /><View style={{ backgroundColor: palette.card, padding: 20, borderRadius: 24, gap: 12 }}><MaterialCommunityIcons name="alert-circle-outline" size={30} color={palette.danger} /><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Clear all local data?</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>{account.user ? 'This deletes your account’s habits, history, and tasks from this device and syncs those deletions to Firebase when online.' : 'This permanently deletes your habits, history, and tasks from this device.'} Your appearance settings will return to their defaults.</Text><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setConfirmClear(false)} /><ActionButton label={working ? 'Clearing…' : 'Delete data'} destructive onPress={() => void clearData()} /></View></View></View></Modal>
     <TimeDialog visible={timeTarget !== null} value={timeTarget === 'quote' ? quoteTime : summaryTime} title={timeTarget === 'quote' ? 'Quote reminder time' : 'Daily summary time'} onClose={() => setTimeTarget(null)} onSelect={time => void changeTime(time)} />
   </Screen></View>;
 }

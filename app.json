@@ -3,13 +3,11 @@
     "name": "habit-tracker",
     "slug": "habit-tracker",
     "version": "1.0.0",
+    "platforms": ["android", "web"],
     "orientation": "portrait",
     "icon": "./assets/images/habitly-app-icon.png",
     "scheme": "habittracker",
     "userInterfaceStyle": "light",
-    "ios": {
-      "icon": "./assets/images/habitly-app-icon.png"
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#D7C9FF",

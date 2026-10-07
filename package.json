@@ -6,6 +6,9 @@
     "@expo/metro-runtime": "~57.0.16",
     "@expo/ui": "~57.0.21",
     "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "12.0.1",
+    "@react-native-google-signin/google-signin": "^16.1.5",
     "expo": "~57.0.26",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
@@ -26,6 +29,7 @@
     "expo-symbols": "~57.0.3",
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
+    "firebase": "^12.19.0",
     "nativewind": "5.0.0-rc.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -53,8 +57,7 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "tsx --test tests/*.test.ts"

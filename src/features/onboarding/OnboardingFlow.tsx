@@ -6,6 +6,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeIn, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import { BackgroundBlobs } from '../../components/decorative/BackgroundBlobs';
 import { useHabitlyActions, useHabitlyProfile, useHabitlyTheme } from '../app/AppProvider';
+import { useCloudAccount } from '../account/CloudAccountProvider';
 import { useOnboardingTheme } from './theme';
 import { appRoute } from '../../utils/routes';
 import { ageRanges, discoveryOptions, interestOptions } from './types';
@@ -16,6 +17,7 @@ const stepCount = 5;
 export function OnboardingFlow() {
   const { profileName, onboardingDraft } = useHabitlyProfile();
   const { setPreference } = useHabitlyActions();
+  const account = useCloudAccount();
   const theme = useOnboardingTheme();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profileName === 'Friend' ? '' : profileName);
@@ -97,6 +99,18 @@ export function OnboardingFlow() {
       setSaving(false);
     }
   };
+  const continueWithGoogle = async () => {
+    if (savingRef.current) return;
+    setAuthNotice(''); savingRef.current = true; setSaving(true);
+    try {
+      if (!account.configured) throw new Error('Google sign-in needs Firebase setup. Add your project configuration, then rebuild the app.');
+      await setPreference('onboardingComplete', 'true');
+      await account.signInWithGoogle();
+      router.replace(appRoute('/'));
+    } catch (reason) {
+      setAuthNotice(reason instanceof Error ? reason.message : 'Google sign-in failed. Please try again.');
+    } finally { savingRef.current = false; setSaving(false); }
+  };
 
   return <View style={{ flex: 1, overflow: 'hidden', backgroundColor: theme.canvas }}>
     <BackgroundBlobs variant={step === stepCount ? 'celebration' : 'onboarding'} />
@@ -120,7 +134,7 @@ export function OnboardingFlow() {
             </ScrollView>
             {step === 4 && <Pressable accessibilityRole="button" disabled={saving} onPress={() => void skipMotivation()} style={{ minHeight: 46, borderRadius: 23, backgroundColor: theme.purpleSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 10, opacity: saving ? 0.7 : 1 }}><Text style={{ color: theme.ink, fontSize: 14, fontWeight: '600' }}>Skip for now</Text></Pressable>}
             <PrimaryActionButton label={saving ? 'Saving…' : 'Continue'} onPress={() => void next()} disabled={saving} />
-          </> : <ReadyStep name={name.trim() || profileName} notice={authNotice} onUnavailableAuth={setAuthNotice} onGuest={() => void continueAsGuest()} />}
+          </> : <ReadyStep name={name.trim() || profileName} notice={authNotice} onGoogle={() => void continueWithGoogle()} onGuest={() => void continueAsGuest()} />}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -190,9 +204,8 @@ function MotivationStep({ value, onChange }: { value: string; onChange: (value: 
   </>;
 }
 
-function ReadyStep({ name, notice, onUnavailableAuth, onGuest }: { name: string; notice: string; onUnavailableAuth: (notice: string) => void; onGuest: () => void }) {
+function ReadyStep({ name, notice, onGoogle, onGuest }: { name: string; notice: string; onGoogle: () => void; onGuest: () => void }) {
   const theme = useOnboardingTheme();
-  const unavailable = () => onUnavailableAuth('Google and email sign-in will be connected in a later update. Continue as a guest to start using Habitly.');
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18, paddingTop: 8, paddingBottom: 12 }}>
     <Animated.View entering={FadeIn.duration(360)}><HabitlyMark size={82} /></Animated.View>
     <View style={{ alignItems: 'center', gap: 8 }}>
@@ -200,8 +213,7 @@ function ReadyStep({ name, notice, onUnavailableAuth, onGuest }: { name: string;
       <Text style={{ maxWidth: 300, color: theme.muted, fontSize: 14, lineHeight: 20, textAlign: 'center' }}>Create an account to save your progress and access it everywhere.</Text>
     </View>
     <View style={{ width: '100%', gap: 10, marginTop: 6 }}>
-      <AccountActionButton label="Continue with Google" icon="google" iconColor="#4285F4" onPress={unavailable} />
-      <AccountActionButton label="Continue with Email" icon="email-outline" onPress={unavailable} />
+      <AccountActionButton label="Continue with Google" icon="google" iconColor="#4285F4" onPress={onGoogle} />
       <AccountActionButton label="Continue as Guest" icon="account-outline" onPress={onGuest} />
     </View>
     {!!notice && <Text accessibilityRole="alert" style={{ color: theme.muted, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>{notice}</Text>}
