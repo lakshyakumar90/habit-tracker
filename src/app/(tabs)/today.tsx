@@ -47,7 +47,7 @@ export default function Today() {
     const progress = activeHabits.length ? Math.round(completed / activeHabits.length * 100) : 0;
     const startOfWeek = addDays(new Date(`${today}T12:00:00`), -((new Date(`${today}T12:00:00`).getDay() + 6) % 7));
     const week = Array.from({ length: 7 }, (_, index) => addDays(startOfWeek, index));
-    const dateTasks = tasks.filter(task => task.dueDate === selectedDate).slice(0, 3);
+    const dateTasks = tasks.filter(task => task.dueDate === selectedDate);
     const currentStreak = Math.max(0, ...habits.filter(habit => !habit.archived).map(habit => calculateStreak(habit, entries)));
     return { activeHabits, completed, progress, week, dateTasks, currentStreak };
   }, [habits, entries, tasks, selectedDate, selectedDay, today]);
@@ -97,6 +97,7 @@ export default function Today() {
               <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
                 <Text style={{ color: palette.ink, fontSize: 20, fontWeight: '700', letterSpacing: -0.4 }}>{selectedDate === today ? 'Today’s progress' : `${shortDate(selectedDate)} progress`}</Text>
                 <Text style={{ color: palette.muted, fontSize: 14 }}>{completed} of {activeHabits.length} habits completed</Text>
+                <Text style={{ color: palette.muted, fontSize: 14, fontWeight: '600' }}>{dateTasks.filter(task => task.completed).length} of {dateTasks.length} tasks completed</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 9, paddingRight: 3 }}>
                   {week.map((day, index) => <WeekDay key={dateKey(day)} day={day} label={DAY_LABELS[index]} selected={dateKey(day) === selectedDate} completed={entries.some(entry => entry.date === dateKey(day) && entry.completed)} onPress={() => setSelectedDate(dateKey(day))} />)}
                 </View>
@@ -229,8 +230,8 @@ function TodayTaskRow({ task, date, last, onToggle, onMore }: { task: Task; date
       <MaterialCommunityIcons name={task.completed ? 'checkbox-marked' : 'checkbox-blank-outline'} size={27} color={task.completed ? palette.purple : palette.ink} />
     </Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${task.title}`} onPress={onMore} style={{ flex: 1, minWidth: 0, minHeight: 56, justifyContent: 'center', gap: 3 }}>
-      <Text numberOfLines={1} style={{ color: palette.ink, fontSize: 15, fontWeight: '600', textDecorationLine: task.completed ? 'line-through' : 'none' }}>{task.title}</Text>
-      <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 13 }}>{dayLabel}{task.dueTime ? `, ${formatTime(task.dueTime)}` : ''}</Text>
+      <Text numberOfLines={1} style={{ color: task.completed ? palette.muted : palette.ink, fontSize: 15, fontWeight: '600', textDecorationLine: task.completed ? 'line-through' : 'none' }}>{task.title}</Text>
+      <Text numberOfLines={1} style={{ color: task.completed ? palette.purple : palette.muted, fontSize: 13, fontWeight: task.completed ? '700' : '400' }}>{task.completed ? 'Completed' : dayLabel}{task.dueTime ? ` · ${formatTime(task.dueTime)}` : ''}</Text>
     </Pressable>
     {task.priority !== 'none' && task.priority !== 'low' && <MaterialCommunityIcons name="flag" size={19} color={flagColor} />}
     <Pressable accessibilityRole="button" accessibilityLabel={`More actions for ${task.title}`} onPress={onMore} style={{ width: 38, height: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name="dots-horizontal" size={21} color={palette.ink} /></Pressable>

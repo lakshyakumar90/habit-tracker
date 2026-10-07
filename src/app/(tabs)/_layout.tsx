@@ -21,6 +21,7 @@ const tabs = [
   { name: 'profile', label: 'Profile', active: 'account', inactive: 'account-outline' },
 ] as const;
 const pages = [memo(Today), memo(Habits), memo(Tasks), memo(Stats), memo(Profile)];
+let lastVisibleTab: number | null = null;
 const PageCell = memo(function PageCell({ index, width }: { index: number; width: number }) {
   const Page = pages[index];
   return <View style={{ width, flex: 1 }}><Page /></View>;
@@ -32,7 +33,8 @@ export default function TabLayout() {
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const pathIndex = tabs.findIndex(tab => pathname.endsWith(`/${tab.name}`));
-  const initialIndex = Math.max(0, pathIndex);
+  const initialIndex = lastVisibleTab ?? Math.max(0, pathIndex);
+  const ignoreInitialRoute = useRef(lastVisibleTab !== null);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const selected = useRef(initialIndex);
   const userDragging = useRef(false);
@@ -43,9 +45,12 @@ export default function TabLayout() {
   const fade = useSharedValue(1);
   const cellWidth = (width - 44) / tabs.length;
 
+  useEffect(() => { lastVisibleTab = selected.current; }, []);
+
   const select = useCallback((index: number) => {
     if (selected.current === index) return;
     selected.current = index;
+    lastVisibleTab = index;
     setActiveIndex(index);
   }, []);
 
@@ -76,6 +81,7 @@ export default function TabLayout() {
   // Other screens can link to a tab. A tab tap or swipe never writes another
   // route, so a route update cannot replay the pager transition.
   useEffect(() => {
+    if (ignoreInitialRoute.current) { ignoreInitialRoute.current = false; return; }
     if (pathIndex >= 0 && pathIndex !== selected.current) showPage(pathIndex, false);
   }, [pathIndex, showPage]);
 

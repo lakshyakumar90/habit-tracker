@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,12 +23,17 @@ export default function TaskDetail() {
   const [subtaskOpen, setSubtaskOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const returnToTasks = useCallback(() => router.dismissTo('/(tabs)/tasks'), []);
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { returnToTasks(); return true; });
+    return () => subscription.remove();
+  }, [returnToTasks]));
   const progress = useMemo(() => {
     const all = task?.subtasks ?? [];
     return { done: all.filter(item => item.completed).length, total: all.length };
   }, [task?.subtasks]);
 
-  if (!task) return <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.canvas, padding: 24 }}><MaterialCommunityIcons name="clipboard-alert-outline" size={36} color={palette.purple} /><Text style={{ color: palette.ink, fontSize: 18, fontWeight: '700', marginTop: 12 }}>Task not found</Text><Pressable accessibilityRole="button" onPress={() => router.back()} style={{ padding: 14 }}><Text style={{ color: palette.purple, fontWeight: '700' }}>Go back</Text></Pressable></SafeAreaView>;
+  if (!task) return <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.canvas, padding: 24 }}><MaterialCommunityIcons name="clipboard-alert-outline" size={36} color={palette.purple} /><Text style={{ color: palette.ink, fontSize: 18, fontWeight: '700', marginTop: 12 }}>Task not found</Text><Pressable accessibilityRole="button" onPress={returnToTasks} style={{ padding: 14 }}><Text style={{ color: palette.purple, fontWeight: '700' }}>Go back</Text></Pressable></SafeAreaView>;
 
   const priorityColor = task.priority === 'high' ? palette.danger : task.priority === 'medium' ? palette.yellow : task.priority === 'low' ? palette.purple : palette.muted;
   const dueText = task.dueDate === dateKey() ? 'Today' : shortDate(task.dueDate);
@@ -45,7 +50,7 @@ export default function TaskDetail() {
     <View pointerEvents="none" style={{ position: 'absolute', bottom: -170, left: -130, width: 330, height: 330, borderRadius: 170, backgroundColor: palette.yellowSoft }} />
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
       <View style={{ paddingHorizontal: 18, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <HeaderIcon icon="arrow-left" label="Go back" onPress={() => router.back()} />
+        <HeaderIcon icon="arrow-left" label="Go back" onPress={returnToTasks} />
         <View style={{ flexDirection: 'row', gap: 8 }}><HeaderIcon icon="pencil-outline" label="Edit task" onPress={() => setFormOpen(true)} /><HeaderIcon icon="dots-horizontal" label="More task actions" onPress={() => setActionsOpen(true)} /></View>
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 19, paddingTop: 14, paddingBottom: 22, gap: 16 }} showsVerticalScrollIndicator={false}>
@@ -86,7 +91,7 @@ export default function TaskDetail() {
     </SafeAreaView>
     {formOpen && <TaskForm key={task.id} task={task} onClose={() => setFormOpen(false)} />}
     <ActionSheet visible={actionsOpen} title={task.title} subtitle="Manage this task" onClose={() => setActionsOpen(false)} actions={[{ label: 'Edit task', icon: 'pencil-outline', onPress: () => setFormOpen(true) }, { label: task.completed ? 'Mark incomplete' : 'Mark complete', icon: task.completed ? 'undo' : 'check', onPress: () => void toggleTask(task) }, { label: 'Delete task', icon: 'delete-outline', destructive: true, onPress: () => setDeleteOpen(true) }]} />
-    <ActionSheet visible={deleteOpen} title="Delete this task?" subtitle="Its scheduled reminder will be cancelled." onClose={() => setDeleteOpen(false)} actions={[{ label: 'Delete task', icon: 'delete-outline', destructive: true, onPress: () => { void deleteTask(task.id); router.back(); } }]} />
+    <ActionSheet visible={deleteOpen} title="Delete this task?" subtitle="Its scheduled reminder will be cancelled." onClose={() => setDeleteOpen(false)} actions={[{ label: 'Delete task', icon: 'delete-outline', destructive: true, onPress: () => { void deleteTask(task.id); returnToTasks(); } }]} />
     <SubtaskDialog visible={subtaskOpen} value={subtaskTitle} onChange={setSubtaskTitle} onClose={() => setSubtaskOpen(false)} onSave={addSubtask} />
   </View>;
 }

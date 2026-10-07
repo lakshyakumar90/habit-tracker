@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -7,12 +7,13 @@ import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button } from '../../components/ui/Primitives';
 import { SmoothSwitch } from '../../components/ui/SmoothSwitch';
 import { CalendarDialog, TimeDialog } from '../../components/ui/DateTimeDialogs';
-import { useHabitlyActions, useHabitlyTheme } from '../app/AppProvider';
+import { useHabitlyActions, useHabitlyTasks, useHabitlyTheme } from '../app/AppProvider';
+import { preferencesRepository } from '../../database/repositories';
 import type { Task, TaskDraft, TaskRepeatRule, TaskSubtask } from './types';
 import { palette } from '../../theme/tokens';
 import { addDays, dateKey } from '../../utils/dates';
 
-const LISTS = ['Personal', 'Work', 'Health', 'Study'];
+const DEFAULT_LISTS = ['Personal', 'Work', 'Health', 'Study'];
 const ICONS = ['clipboard-text', 'calendar-month-outline', 'cart-outline', 'phone-outline', 'laptop', 'book-open-variant', 'weight-lifter', 'heart-outline', 'airplane', 'dots-horizontal'];
 const COLORS = ['#6750C7', '#F1C95B', '#F59B95', '#F07883', '#75B9EA', '#71C99A', '#B782D8'];
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -25,6 +26,7 @@ const PRIORITIES: { value: Task['priority']; title: string; icon: string; colorK
 export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }) {
   useHabitlyTheme();
   const { addTask } = useHabitlyActions();
+  const tasks = useHabitlyTasks();
   const { width } = useWindowDimensions();
   const iconCellWidth = (width - 64 - 32) / 5;
   const [step, setStep] = useState(1);
@@ -47,6 +49,21 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
   const [reminders, setReminders] = useState(task?.reminders ?? [60]);
   const [reminderSheet, setReminderSheet] = useState<'add' | number | null>(null);
   const [listSheet, setListSheet] = useState(false);
+  const [lists, setLists] = useState(DEFAULT_LISTS);
+  const [createListOpen, setCreateListOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [listError, setListError] = useState('');
+  const [customReminderOpen, setCustomReminderOpen] = useState(false);
+  const customReminderTarget = useRef<'add' | number>('add');
+  useEffect(() => {
+    let active = true;
+    void preferencesRepository.get('taskLists', '[]').then(raw => {
+      let saved: string[] = [];
+      try { const parsed: unknown = JSON.parse(raw); if (Array.isArray(parsed)) saved = parsed.filter((value): value is string => typeof value === 'string'); } catch { /* Keep existing task lists. */ }
+      if (active) setLists([...new Set([...DEFAULT_LISTS, ...saved, ...tasks.map(item => item.listName), listName].map(value => value.trim()).filter(Boolean))]);
+    });
+    return () => { active = false; };
+  }, [tasks, listName]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -66,9 +83,28 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
     setSubtasks(current => [...current, { id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, title: value, completed: false }]);
     setSubtaskDraft(''); setAddingSubtask(false);
   };
-  const chooseReminder = (offset: number) => {
-    if (reminderSheet === 'add') setReminders(current => current.includes(offset) ? current : [...current, offset].sort((a, b) => b - a));
-    else if (typeof reminderSheet === 'number') setReminders(current => current.map((value, index) => index === reminderSheet ? offset : value).filter((value, index, all) => all.indexOf(value) === index).sort((a, b) => b - a));
+  const chooseReminder = (offset: number, target = reminderSheet) => {
+    if (target === 'add') setReminders(current => current.includes(offset) ? current : [...current, offset].sort((a, b) => b - a));
+    else if (typeof target === 'number') setReminders(current => current.map((value, index) => index === target ? offset : value).filter((value, index, all) => all.indexOf(value) === index).sort((a, b) => b - a));
+  };
+  const createList = async () => {
+    const name = newListName.trim();
+    if (!name) { setListError('Enter a list name.'); return; }
+    const existing = lists.find(value => value.toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (existing) { setListName(existing); setCreateListOpen(false); return; }
+    const next = [...lists, name];
+    try {
+      await preferencesRepository.set('taskLists', JSON.stringify(next));
+      setLists(next); setListName(name); setNewListName(''); setListError(''); setCreateListOpen(false);
+    } catch { setListError('Could not save the list. Try again.'); }
+  };
+  const chooseCustomReminder = (time: string) => {
+    if (!dueTime) return;
+    const [dueHour, dueMinute] = dueTime.split(':').map(Number);
+    const [hour, minute] = time.split(':').map(Number);
+    const offset = ((dueHour * 60 + dueMinute - hour * 60 - minute) + 1440) % 1440;
+    chooseReminder(offset, customReminderTarget.current);
+    setCustomReminderOpen(false);
   };
   const save = async () => {
     if (saving) return;
@@ -137,7 +173,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
                 <FieldLabel style={{ marginTop: 17 }}>Priority</FieldLabel>
                 <View style={{ flexDirection: 'row', gap: 7, marginTop: 7 }}>{PRIORITIES.map(item => { const selected = priority === item.value; const color = palette[item.colorKey]; return <Pressable key={item.value} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => setPriority(item.value)} style={{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 15, borderWidth: selected ? 1 : 0, borderColor: color, backgroundColor: selected ? color + '20' : palette.card }}><MaterialCommunityIcons name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={19} color={color} /><Text style={{ color: selected ? palette.ink : palette.muted, fontSize: 10, fontWeight: selected ? '700' : '500' }}>{item.title}</Text></Pressable>; })}</View>
 
-                <View style={sectionHeader}><FieldLabel>Add to list <Text style={optional()}>(optional)</Text></FieldLabel></View>
+                <View style={[sectionHeader, { marginTop: 18 }]}><FieldLabel>Add to list <Text style={optional()}>(optional)</Text></FieldLabel></View>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Task list: ${listName}. Change list`} onPress={() => setListSheet(true)} style={[inputShell(), { marginTop: 7, minHeight: 50 }]}><MaterialCommunityIcons name="format-list-bulleted" size={19} color={palette.purple} /><Text style={{ color: palette.ink, flex: 1, fontSize: 14 }}>{listName}</Text><MaterialCommunityIcons name="chevron-down" size={19} color={palette.muted} /></Pressable>
               </>}
 
@@ -161,7 +197,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
                       <Pressable accessibilityRole="button" accessibilityLabel={`Reminder ${reminderLabel(offset)}. Change`} onPress={() => setReminderSheet(index)} style={{ flex: 1, minHeight: 42, justifyContent: 'center' }}><Text style={{ color: palette.ink, fontSize: 12 }}>{reminderLabel(offset)}</Text></Pressable>
                       <Pressable accessibilityRole="button" accessibilityLabel="Remove reminder" onPress={() => setReminders(current => current.filter((_, itemIndex) => itemIndex !== index))} hitSlop={8} style={{ padding: 5 }}><MaterialCommunityIcons name="close" size={17} color={palette.muted} /></Pressable>
                     </View>)}
-                    {reminders.length < REMINDER_OPTIONS.length && <Pressable accessibilityRole="button" onPress={() => setReminderSheet('add')} style={{ minHeight: 38, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, marginTop: 5 }}><MaterialCommunityIcons name="plus" size={18} color={palette.purple} /><Text style={{ color: palette.purple, fontSize: 12, fontWeight: '700' }}>Add another reminder</Text></Pressable>}
+                    <Pressable accessibilityRole="button" onPress={() => setReminderSheet('add')} style={{ minHeight: 38, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, marginTop: 5 }}><MaterialCommunityIcons name="plus" size={18} color={palette.purple} /><Text style={{ color: palette.purple, fontSize: 12, fontWeight: '700' }}>Add another reminder</Text></Pressable>
                     {!dueTime && <Text style={{ color: palette.danger, fontSize: 11 }}>Choose a due time to schedule reminders.</Text>}
                   </>}
                 </Panel>
@@ -184,15 +220,17 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
     </Modal>
     <CalendarDialog visible={calendarOpen} value={dueDate} title="Choose due date" onClose={() => setCalendarOpen(false)} onSelect={setDueDate} />
     <TimeDialog visible={timeOpen} value={dueTime ?? '17:00'} title="Due time" onClose={() => setTimeOpen(false)} onSelect={setDueTime} />
-    <ActionSheet visible={listSheet} title="Add to list" subtitle="Choose where to organize this task" onClose={() => setListSheet(false)} actions={LISTS.map(name => ({ label: name, icon: listName === name ? 'check-circle' : 'format-list-bulleted', onPress: () => setListName(name) }))} />
-    <ActionSheet visible={reminderSheet !== null} title={reminderSheet === 'add' ? 'Add reminder' : 'Reminder time'} subtitle="Choose when to be notified" onClose={() => setReminderSheet(null)} actions={REMINDER_OPTIONS.filter(option => reminderSheet !== 'add' || !reminders.includes(option.offset)).map(option => ({ label: option.label, icon: 'bell-outline', onPress: () => chooseReminder(option.offset) }))} />
+    <ActionSheet visible={listSheet} title="Add to list" subtitle="Choose where to organize this task" onClose={() => setListSheet(false)} actions={[...lists.map(name => ({ label: name, icon: listName === name ? 'check-circle' : 'format-list-bulleted', onPress: () => setListName(name) })), { label: 'Create new list', icon: 'plus', onPress: () => setCreateListOpen(true) }]} />
+    <Modal visible={createListOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setCreateListOpen(false)}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }}><View style={{ padding: 20, borderRadius: 22, backgroundColor: palette.card, gap: 14 }}><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Create a list</Text><TextInput accessibilityLabel="New list name" autoFocus value={newListName} onChangeText={value => { setNewListName(value); setListError(''); }} maxLength={40} placeholder="List name" placeholderTextColor={palette.muted} returnKeyType="done" onSubmitEditing={() => void createList()} style={[input(), { flex: 0, minHeight: 50, paddingHorizontal: 14, borderRadius: 14, backgroundColor: palette.input }]} />{!!listError && <Text accessibilityRole="alert" style={{ color: palette.danger, fontSize: 12 }}>{listError}</Text>}<View style={{ flexDirection: 'row', gap: 10 }}><Button label="Cancel" secondary onPress={() => setCreateListOpen(false)} style={{ flex: 1 }} /><Button label="Create list" onPress={() => void createList()} style={{ flex: 1 }} /></View></View></KeyboardAvoidingView></Modal>
+    <ActionSheet visible={reminderSheet !== null && !customReminderOpen} title={reminderSheet === 'add' ? 'Add reminder' : 'Reminder time'} subtitle="Choose when to be notified" onClose={() => setReminderSheet(null)} actions={[...REMINDER_OPTIONS.filter(option => reminderSheet !== 'add' || !reminders.includes(option.offset)).map(option => ({ label: option.label, icon: 'bell-outline', onPress: () => chooseReminder(option.offset) })), { label: 'Custom time', icon: 'clock-outline', onPress: () => { if (dueTime) { customReminderTarget.current = reminderSheet ?? 'add'; setCustomReminderOpen(true); } else setError('Choose a due time before setting a custom reminder.'); } }]} />
+    <TimeDialog visible={customReminderOpen} value={dueTime ?? '17:00'} title="Custom reminder time" onClose={() => { setCustomReminderOpen(false); setReminderSheet(null); }} onSelect={chooseCustomReminder} />
   </>;
 }
 
 function FieldLabel({ children, style }: { children: React.ReactNode; style?: object }) { return <Text style={[{ color: palette.ink, fontSize: 14, fontWeight: '700' }, style]}>{children}</Text>; }
 function DateChoice({ label, icon, selected, onPress }: { label: string; icon: string; selected: boolean; onPress: () => void }) { return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={{ flex: 1, minHeight: 62, alignItems: 'flex-start', justifyContent: 'center', gap: 4, paddingHorizontal: 10, borderRadius: 15, borderWidth: selected ? 1.5 : 1, borderColor: selected ? palette.purple : palette.line, backgroundColor: selected ? palette.purpleSoft : palette.card }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={18} color={selected ? palette.purple : palette.ink} /><Text style={{ color: palette.ink, fontSize: 11, fontWeight: selected ? '700' : '500' }}>{label}</Text></Pressable>; }
 function Panel({ children, style }: { children: React.ReactNode; style?: object }) { return <View style={[{ padding: 13, borderRadius: 19, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card }, style]}>{children}</View>; }
-function reminderLabel(offset: number) { return REMINDER_OPTIONS.find(option => option.offset === offset)?.label ?? `${offset} minutes before`; }
+function reminderLabel(offset: number) { return REMINDER_OPTIONS.find(option => option.offset === offset)?.label ?? (offset >= 60 ? `${Math.floor(offset / 60)}h ${offset % 60}m before` : `${offset} minutes before`); }
 function repeatIcon(rule: TaskRepeatRule) { return rule === 'none' ? 'cancel' : rule === 'daily' ? 'autorenew' : rule === 'weekly' ? 'calendar-week' : 'tune-variant'; }
 function capitalize(value: string) { return value[0].toUpperCase() + value.slice(1); }
 function formatTime(value: string) { const [hourText, minute] = value.split(':'); const hour = Number(hourText); if (!Number.isFinite(hour) || !minute) return value; return `${hour % 12 || 12}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`; }

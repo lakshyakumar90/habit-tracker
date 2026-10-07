@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Button } from './Primitives';
@@ -36,31 +36,41 @@ function CalendarContent({ visible, value, title = 'Choose a date', onClose, onS
 type TimeProps={visible:boolean;value:string;title?:string;onClose:()=>void;onSelect:(time:string)=>void};
 export function TimeDialog(props:TimeProps){return props.visible?<TimePicker key={props.value} {...props}/>:null}
 function TimePicker({ visible, value, title = 'Reminder time', onClose, onSelect }: TimeProps) {
-  useHabitlyTheme();
-  const [hour24,setHour24]=useState(()=>Number(value.split(':')[0]||9));
-  const [minute,setMinute]=useState(()=>Number(value.split(':')[1]||0));
+  const { accent } = useHabitlyTheme();
+  const [hour24,setHour24]=useState(()=>Number(value.split(':')[0] ?? 9));
+  const [minute,setMinute]=useState(()=>Number(value.split(':')[1] ?? 0));
   const hour12=hour24%12||12;
   const period=hour24>=12?'PM':'AM';
+  const hours=Array.from({length:12},(_,index)=>String(index+1).padStart(2,'0'));
+  const minutes=Array.from({length:60},(_,index)=>String(index).padStart(2,'0'));
   const setHour12=(next:number)=>setHour24((next%12)+(period==='PM'?12:0));
   const setPeriod=(next:'AM'|'PM')=>setHour24((hour24%12)+(next==='PM'?12:0));
   return <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}><View style={{flex:1,justifyContent:'flex-end',backgroundColor:palette.overlay}}><Pressable accessibilityRole="button" accessibilityLabel="Close time picker" onPress={onClose} style={StyleSheet.absoluteFill}/><Animated.View entering={FadeInUp.duration(230)} style={{backgroundColor:palette.canvas,borderTopLeftRadius:28,borderTopRightRadius:28,padding:22,paddingBottom:28,gap:17}}>
-    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><View><Text style={{color:palette.ink,fontSize:20,fontWeight:'800'}}>{title}</Text><Text style={{color:palette.muted,marginTop:3,fontSize:13}}>Set any time of day</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Close time picker" onPress={onClose} style={closeButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink}/></Pressable></View>
-    <View style={{alignItems:'center',gap:14}}>
-      <View style={{flexDirection:'row',alignItems:'center',gap:5}}><Text style={{fontSize:40,fontWeight:'800',letterSpacing:-1,color:palette.ink}}>{hour12}</Text><Text style={{fontSize:38,fontWeight:'700',color:palette.muted}}>:</Text><Text style={{fontSize:40,fontWeight:'800',letterSpacing:-1,color:palette.ink}}>{String(minute).padStart(2,'0')}</Text><View style={{marginLeft:6,gap:4}}>{(['AM','PM'] as const).map(item=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:period===item}} onPress={()=>setPeriod(item)} style={{paddingHorizontal:11,paddingVertical:6,borderRadius:10,backgroundColor:period===item?palette.purple:palette.surfaceSoft}}><Text style={{fontSize:12,fontWeight:'800',color:period===item?palette.onPrimary:palette.muted}}>{item}</Text></Pressable>)}</View></View>
-      <TimeSlider label="HOUR" value={hour12} min={1} max={12} onChange={setHour12}/>
-      <TimeSlider label="MINUTE" value={minute} min={0} max={59} onChange={setMinute}/>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><View><Text style={{color:palette.ink,fontSize:20,fontWeight:'800'}}>{title}</Text><Text style={{color:palette.muted,marginTop:3,fontSize:13}}>Choose hour, minute, and AM or PM</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Close time picker" onPress={onClose} style={closeButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink}/></Pressable></View>
+    <View style={{flexDirection:'row',justifyContent:'center',gap:10}}>
+      <TimeWheel label="Hour" values={hours} selectedIndex={hour12-1} onSelect={index=>setHour12(index+1)} accent={accent}/>
+      <TimeWheel label="Minute" values={minutes} selectedIndex={minute} onSelect={setMinute} accent={accent}/>
+      <TimeWheel label="Period" values={['AM','PM']} selectedIndex={period==='AM'?0:1} onSelect={index=>setPeriod(index===0?'AM':'PM')} accent={accent}/>
     </View>
+    <Text accessibilityLiveRegion="polite" style={{textAlign:'center',fontSize:15,fontWeight:'700',color:palette.ink}}>{String(hour12).padStart(2,'0')}:{String(minute).padStart(2,'0')} {period}</Text>
     <Button label="Set reminder" onPress={()=>{onSelect(`${String(hour24).padStart(2,'0')}:${String(minute).padStart(2,'0')}`);onClose();}}/>
   </Animated.View></View></Modal>;
 }
 
-function TimeSlider({label,value,min,max,onChange}:{label:string;value:number;min:number;max:number;onChange:(value:number)=>void}){
-  const [width,setWidth]=useState(1);
-  const setFromX=useCallback((x:number)=>onChange(Math.min(max,Math.max(min,Math.round((Math.max(0,Math.min(width,x))/width)*(max-min)+min)))),[onChange,width,min,max]);
-  const pan=useMemo(()=>PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:e=>setFromX(e.nativeEvent.locationX),onPanResponderMove:e=>setFromX(e.nativeEvent.locationX)}),[setFromX]);
-  const ratio=(value-min)/(max-min);
-  const marks=label==='HOUR'?['1','4','7','10','12']:['00','15','30','45','59'];
-  return <View style={{width:'100%',gap:7}}><View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={{fontSize:11,fontWeight:'700',letterSpacing:.8,color:palette.muted}}>{label}</Text><Text style={{fontSize:11,color:palette.muted}}>{label==='HOUR'?'1–12':'00–59'}</Text></View><View accessibilityRole="adjustable" accessibilityLabel={`${label.toLowerCase()} slider`} accessibilityValue={{min,max,now:value}} accessibilityActions={[{name:'increment'},{name:'decrement'}]} onAccessibilityAction={e=>onChange(Math.max(min,Math.min(max,value+(e.nativeEvent.actionName==='increment'?1:-1))))} onLayout={e=>setWidth(e.nativeEvent.layout.width)} {...pan.panHandlers} style={{height:42,justifyContent:'center',paddingHorizontal:6}}><View style={{height:7,borderRadius:5,backgroundColor:palette.line,overflow:'visible'}}><View style={{width:`${ratio*100}%`,height:7,borderRadius:5,backgroundColor:palette.purple}}/><View style={{position:'absolute',left:`${ratio*100}%`,top:-8,marginLeft:-12,width:24,height:24,borderRadius:12,backgroundColor:palette.purple,borderWidth:3,borderColor:palette.canvas,elevation:2}}/></View></View><View style={{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:4}}>{marks.map(mark=><Text key={mark} style={{fontSize:10,color:palette.muted}}>{mark}</Text>)}</View></View>;
+const WHEEL_ROW_HEIGHT=44;
+function TimeWheel({label,values,selectedIndex,onSelect,accent}:{label:string;values:string[];selectedIndex:number;onSelect:(index:number)=>void;accent:string}){
+  const scroll=useRef<ScrollView>(null);
+  useEffect(()=>{scroll.current?.scrollTo({y:selectedIndex*WHEEL_ROW_HEIGHT,animated:false});},[selectedIndex]);
+  const settle=(event:NativeSyntheticEvent<NativeScrollEvent>)=>onSelect(Math.max(0,Math.min(values.length-1,Math.round(event.nativeEvent.contentOffset.y/WHEEL_ROW_HEIGHT))));
+  return <View style={{flex:1,minWidth:0,gap:7}}>
+    <Text style={{textAlign:'center',fontSize:11,fontWeight:'700',letterSpacing:.6,color:palette.muted}}>{label}</Text>
+    <View style={{height:WHEEL_ROW_HEIGHT*5,borderRadius:18,backgroundColor:palette.surfaceSoft,overflow:'hidden'}}>
+      <View pointerEvents="none" style={{position:'absolute',top:WHEEL_ROW_HEIGHT*2,left:4,right:4,height:WHEEL_ROW_HEIGHT,borderRadius:12,backgroundColor:palette.purpleSoft,borderWidth:1,borderColor:accent}}/>
+      <ScrollView ref={scroll} style={{zIndex:1}} nestedScrollEnabled showsVerticalScrollIndicator={false} snapToInterval={WHEEL_ROW_HEIGHT} decelerationRate="fast" contentOffset={{x:0,y:selectedIndex*WHEEL_ROW_HEIGHT}} contentContainerStyle={{paddingVertical:WHEEL_ROW_HEIGHT*2}} onMomentumScrollEnd={settle} onScrollEndDrag={event=>{if(Math.abs(event.nativeEvent.velocity?.y??0)<0.01)settle(event);}} accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{text:values[selectedIndex]}} accessibilityActions={[{name:'increment'},{name:'decrement'}]} onAccessibilityAction={event=>onSelect(Math.max(0,Math.min(values.length-1,selectedIndex+(event.nativeEvent.actionName==='increment'?1:-1))))}>
+        {values.map((item,index)=><Pressable key={`${label}-${item}`} accessibilityRole="button" accessibilityLabel={`${label} ${item}`} onPress={()=>{onSelect(index);scroll.current?.scrollTo({y:index*WHEEL_ROW_HEIGHT,animated:true});}} style={{height:WHEEL_ROW_HEIGHT,alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:selectedIndex===index?21:17,fontWeight:selectedIndex===index?'800':'500',color:selectedIndex===index?accent:palette.muted}}>{item}</Text></Pressable>)}
+      </ScrollView>
+    </View>
+  </View>;
 }
 
 const closeButton=()=>({width:44,height:44,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:palette.surfaceSoft} as const);

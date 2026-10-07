@@ -67,5 +67,5 @@ export async function clearLocalData() {
 }
 
 export async function exportLocalData() {
-  return { exportedAt:new Date().toISOString(), habits:await habitsRepository.all(), habitEntries:await habitsRepository.entries(), tasks:await tasksRepository.all(), preferences:{ profileName:await preferencesRepository.get('profileName','Friend'), theme:await preferencesRepository.get('theme','system'), accent:await preferencesRepository.get('accent','#8570EE') } };
+  return { exportedAt:new Date().toISOString(), habits:await habitsRepository.all(), habitEntries:await habitsRepository.entries(), tasks:await tasksRepository.all(), preferences:{ profileName:await preferencesRepository.get('profileName','Friend'), theme:await preferencesRepository.get('theme','system'), accent:await preferencesRepository.get('accent','#8570EE'), taskLists:await preferencesRepository.get('taskLists','[]') } };
 }
