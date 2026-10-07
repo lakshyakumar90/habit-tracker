@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useOnboardingTheme } from './theme';
 
 export function HabitlyMark({ size = 104 }: { size?: number }) {
-  return <View style={{ width: size, height: size, borderRadius: size * 0.34, alignItems: 'center', justifyContent: 'center', backgroundColor: '#D7C9FF' }}>
-    <MaterialCommunityIcons name="sprout" size={size * 0.63} color="#30205F" />
-  </View>;
+  return <Image source={require('../../../assets/images/habitly-mark.png')} accessibilityLabel="Habitly sprout logo" style={{ width: size, height: size }} resizeMode="contain" />;
 }
 
 export function ProgressHeader({ step, onBack }: { step: number; onBack: () => void }) {

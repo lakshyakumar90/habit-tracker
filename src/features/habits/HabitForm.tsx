@@ -45,7 +45,7 @@ type FormStep = 1 | 2 | 3;
 
 export function HabitForm({ visible, onClose, habit }: { visible: boolean; onClose: () => void; habit?: Habit }) {
   const { saveHabit } = useHabitlyActions();
-  const { resolvedTheme } = useHabitlyTheme();
+  useHabitlyTheme();
   const [step, setStep] = useState<FormStep>(1);
   const [name, setName] = useState(habit?.name ?? '');
   const [description, setDescription] = useState(habit?.description ?? '');
@@ -180,7 +180,7 @@ export function HabitForm({ visible, onClose, habit }: { visible: boolean; onClo
             </ScrollView>
 
             <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 8 }}>
-              <PrimaryButton label={step === 3 ? (habit ? 'Save changes' : 'Create habit') : 'Continue'} onPress={next} dark={resolvedTheme === 'dark'} />
+              <PrimaryButton label={step === 3 ? (habit ? 'Save changes' : 'Create habit') : 'Continue'} onPress={next} />
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -231,9 +231,9 @@ function QuickSchedule({ label, selected, onPress }: { label: string; selected: 
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={{ minHeight: 38, paddingHorizontal: 13, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? palette.purpleSoft : palette.card, borderWidth: 1, borderColor: selected ? palette.purple : palette.line }}><Text style={{ color: selected ? palette.purple : palette.muted, fontSize: 12, fontWeight: '600' }}>{label}</Text></Pressable>;
 }
 
-function PrimaryButton({ label, onPress, dark }: { label: string; onPress: () => void; dark: boolean }) {
-  const backgroundColor = dark ? palette.purple : '#19181D';
-  const foregroundColor = dark ? palette.onPrimary : '#FFFFFF';
+function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const backgroundColor = '#19181D';
+  const foregroundColor = '#FFFFFF';
   return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ minHeight: 54, borderRadius: 28, backgroundColor, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
     <Text style={{ color: foregroundColor, fontSize: 15, fontWeight: '700' }}>{label}</Text><MaterialCommunityIcons name={label === 'Create habit' || label === 'Save changes' ? 'check' : 'arrow-right'} size={19} color={foregroundColor} />
   </Pressable>;

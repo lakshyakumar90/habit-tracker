@@ -7,7 +7,7 @@ import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button } from '../../components/ui/Primitives';
 import { SmoothSwitch } from '../../components/ui/SmoothSwitch';
 import { CalendarDialog, TimeDialog } from '../../components/ui/DateTimeDialogs';
-import { useHabitlyActions } from '../app/AppProvider';
+import { useHabitlyActions, useHabitlyTheme } from '../app/AppProvider';
 import type { Task, TaskDraft, TaskRepeatRule, TaskSubtask } from './types';
 import { palette } from '../../theme/tokens';
 import { addDays, dateKey } from '../../utils/dates';
@@ -17,12 +17,13 @@ const ICONS = ['clipboard-text', 'calendar-month-outline', 'cart-outline', 'phon
 const COLORS = ['#6750C7', '#F1C95B', '#F59B95', '#F07883', '#75B9EA', '#71C99A', '#B782D8'];
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const REMINDER_OPTIONS = [{ offset: 1440, label: '1 day before' }, { offset: 60, label: '1 hour before' }, { offset: 30, label: '30 minutes before' }, { offset: 15, label: '15 minutes before' }, { offset: 0, label: 'At due time' }];
-const PRIORITIES: { value: Task['priority']; title: string; icon: string; color: string }[] = [
-  { value: 'low', title: 'Low', icon: 'flag', color: palette.purple }, { value: 'medium', title: 'Medium', icon: 'flag', color: palette.yellow },
-  { value: 'high', title: 'High', icon: 'flag', color: palette.danger }, { value: 'none', title: 'None', icon: 'cancel', color: palette.muted },
+const PRIORITIES: { value: Task['priority']; title: string; icon: string; colorKey: 'purple' | 'yellow' | 'danger' | 'muted' }[] = [
+  { value: 'low', title: 'Low', icon: 'flag', colorKey: 'purple' }, { value: 'medium', title: 'Medium', icon: 'flag', colorKey: 'yellow' },
+  { value: 'high', title: 'High', icon: 'flag', colorKey: 'danger' }, { value: 'none', title: 'None', icon: 'cancel', colorKey: 'muted' },
 ];
 
 export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }) {
+  useHabitlyTheme();
   const { addTask } = useHabitlyActions();
   const { width } = useWindowDimensions();
   const iconCellWidth = (width - 64 - 32) / 5;
@@ -134,7 +135,7 @@ export function TaskForm({ task, onClose }: { task?: Task; onClose: () => void }
                 {repeatRule === 'custom' && <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>{DAYS.map((day, index) => <Pressable key={`${day}-${index}`} accessibilityRole="checkbox" accessibilityState={{ checked: repeatDays.includes(index) }} accessibilityLabel={`Repeat on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][index]}`} onPress={() => toggleDay(index)} style={{ width: 37, height: 37, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: repeatDays.includes(index) ? palette.purple : palette.surfaceSoft }}><Text style={{ color: repeatDays.includes(index) ? palette.onPrimary : palette.muted, fontSize: 12, fontWeight: '700' }}>{day}</Text></Pressable>)}</View>}
 
                 <FieldLabel style={{ marginTop: 17 }}>Priority</FieldLabel>
-                <View style={{ flexDirection: 'row', gap: 7, marginTop: 7 }}>{PRIORITIES.map(item => { const selected = priority === item.value; return <Pressable key={item.value} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => setPriority(item.value)} style={{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 15, borderWidth: selected ? 1 : 0, borderColor: item.color, backgroundColor: selected ? item.color + '20' : palette.card }}><MaterialCommunityIcons name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={19} color={item.color} /><Text style={{ color: selected ? palette.ink : palette.muted, fontSize: 10, fontWeight: selected ? '700' : '500' }}>{item.title}</Text></Pressable>; })}</View>
+                <View style={{ flexDirection: 'row', gap: 7, marginTop: 7 }}>{PRIORITIES.map(item => { const selected = priority === item.value; const color = palette[item.colorKey]; return <Pressable key={item.value} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => setPriority(item.value)} style={{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 15, borderWidth: selected ? 1 : 0, borderColor: color, backgroundColor: selected ? color + '20' : palette.card }}><MaterialCommunityIcons name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={19} color={color} /><Text style={{ color: selected ? palette.ink : palette.muted, fontSize: 10, fontWeight: selected ? '700' : '500' }}>{item.title}</Text></Pressable>; })}</View>
 
                 <View style={sectionHeader}><FieldLabel>Add to list <Text style={optional()}>(optional)</Text></FieldLabel></View>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Task list: ${listName}. Change list`} onPress={() => setListSheet(true)} style={[inputShell(), { marginTop: 7, minHeight: 50 }]}><MaterialCommunityIcons name="format-list-bulleted" size={19} color={palette.purple} /><Text style={{ color: palette.ink, flex: 1, fontSize: 14 }}>{listName}</Text><MaterialCommunityIcons name="chevron-down" size={19} color={palette.muted} /></Pressable>

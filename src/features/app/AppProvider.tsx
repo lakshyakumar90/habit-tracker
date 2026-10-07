@@ -1,10 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useColorScheme } from 'react-native';
 import { habitsRepository, preferencesRepository, tasksRepository } from '../../database/repositories';
 import type { Habit, HabitDraft, HabitEntry } from '../habits/types';
 import type { Task, TaskDraft, TaskSubtask } from '../tasks/types';
 import { dateKey } from '../../utils/dates';
-import { setPaletteAccent, setPaletteMode } from '../../theme/tokens';
+import { setPaletteAccent } from '../../theme/tokens';
 import { cancelEntityReminders, scheduleHabitReminders, scheduleTaskNotifications } from '../../services/notifications';
 import type { OnboardingDraft } from '../onboarding/types';
 
@@ -14,8 +13,6 @@ type AppData = {
   entries: HabitEntry[];
   tasks: Task[];
   profileName: string;
-  theme: string;
-  resolvedTheme: 'light' | 'dark';
   accent: string;
   onboardingComplete: boolean;
   onboardingDraft: OnboardingDraft;
@@ -32,7 +29,7 @@ type AppData = {
 };
 
 type AppActions = Pick<AppData, 'reload' | 'saveHabit' | 'setEntry' | 'archiveHabit' | 'deleteHabit' | 'addTask' | 'toggleTask' | 'setTaskSubtasks' | 'deleteTask' | 'setPreference'>;
-type ThemeData = Pick<AppData, 'theme' | 'resolvedTheme' | 'accent'>;
+type ThemeData = Pick<AppData, 'accent'>;
 type ProfileData = Pick<AppData, 'profileName' | 'onboardingComplete' | 'onboardingDraft'>;
 type AppStatus = Pick<AppData, 'ready'>;
 const ActionsContext = createContext<AppActions | null>(null);
@@ -47,25 +44,22 @@ const orderTasks = (items: Task[]) => items.slice().sort((left, right) => left.d
   || left.createdAt.localeCompare(right.createdAt));
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useColorScheme();
   const [ready, setReady] = useState(false);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [entries, setEntries] = useState<HabitEntry[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [profileName, setProfileName] = useState('Friend');
-  const [theme, setTheme] = useState('system');
   const [accent, setAccent] = useState('#6750C7');
   const [onboardingComplete, setOnboarding] = useState(false);
   const [onboardingDraft, setOnboardingDraft] = useState<OnboardingDraft>({ ageRange: '', interests: [], discoverySource: '', motivation: '' });
   const preferenceWriteVersion = useRef<Record<string, number>>({});
 
   const reload = useCallback(async () => {
-    const [loadedHabits, loadedEntries, loadedTasks, name, savedTheme, savedAccent, complete, age, interests, source, motivation] = await Promise.all([
+    const [loadedHabits, loadedEntries, loadedTasks, name, savedAccent, complete, age, interests, source, motivation] = await Promise.all([
       habitsRepository.all(),
       habitsRepository.entries(),
       tasksRepository.all(),
       preferencesRepository.get('profileName', 'Friend'),
-      preferencesRepository.get('theme', 'system'),
       preferencesRepository.get('accent', '#6750C7'),
       preferencesRepository.get('onboardingComplete', 'false'),
       preferencesRepository.get('onboardingAgeRange', ''),
@@ -83,17 +77,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setEntries(loadedEntries);
     setTasks(loadedTasks);
     setProfileName(name);
-    setTheme(savedTheme);
     setAccent(savedAccent);
     setOnboarding(complete === 'true');
     setOnboardingDraft({ ageRange: age, interests: savedInterests, discoverySource: source, motivation });
     setReady(true);
   }, []);
 
-  const resolvedTheme = theme === 'dark' || (theme === 'system' && systemScheme === 'dark') ? 'dark' : 'light';
   // These tokens are a shared theme source for existing screens. Set them before
-  // descendants render so a theme selection updates the whole visible stack at once.
-  setPaletteMode(resolvedTheme);
+  // descendants render so an accent selection updates the whole visible stack at once.
   setPaletteAccent(accent);
 
   useEffect(() => {
@@ -196,8 +187,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setPreference = useCallback(async (key: string, value: string) => {
     const version = (preferenceWriteVersion.current[key] ?? 0) + 1;
     preferenceWriteVersion.current[key] = version;
-    if (key === 'theme') setTheme(value);
-    if (key === 'accent') setAccent(value);
+    if (key === 'accent') { setPaletteAccent(value); setAccent(value); }
     if (key === 'profileName') setProfileName(value);
     if (key === 'onboardingComplete') setOnboarding(value === 'true');
     if (key === 'onboardingAgeRange') setOnboardingDraft(current => ({ ...current, ageRange: value }));
@@ -214,8 +204,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await preferencesRepository.set(key, value);
     } catch (error) {
       if (preferenceWriteVersion.current[key] === version) {
-        if (key === 'theme') setTheme(theme);
-        if (key === 'accent') setAccent(accent);
+        if (key === 'accent') { setPaletteAccent(accent); setAccent(accent); }
         if (key === 'profileName') setProfileName(profileName);
         if (key === 'onboardingComplete') setOnboarding(onboardingComplete);
         if (key === 'onboardingAgeRange') setOnboardingDraft(current => ({ ...current, ageRange: onboardingDraft.ageRange }));
@@ -225,10 +214,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       throw error;
     }
-  }, [accent, onboardingComplete, onboardingDraft, profileName, theme]);
+  }, [accent, onboardingComplete, onboardingDraft, profileName]);
 
   const actions = useMemo<AppActions>(() => ({ reload, saveHabit, setEntry, archiveHabit, deleteHabit, addTask, toggleTask, setTaskSubtasks, deleteTask, setPreference }), [reload, saveHabit, setEntry, archiveHabit, deleteHabit, addTask, toggleTask, setTaskSubtasks, deleteTask, setPreference]);
-  const themeData = useMemo<ThemeData>(() => ({ theme, resolvedTheme, accent }), [theme, resolvedTheme, accent]);
+  const themeData = useMemo<ThemeData>(() => ({ accent }), [accent]);
   const profileData = useMemo<ProfileData>(() => ({ profileName, onboardingComplete, onboardingDraft }), [profileName, onboardingComplete, onboardingDraft]);
   const appStatus = useMemo<AppStatus>(() => ({ ready }), [ready]);
 

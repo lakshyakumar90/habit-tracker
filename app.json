@@ -4,18 +4,16 @@
     "slug": "habit-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/habitly-app-icon.png",
     "scheme": "habittracker",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/habitly-app-icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#D7C9FF",
+        "foregroundImage": "./assets/images/habitly-mark.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.lakshya.kumar.habittracker"
@@ -23,7 +21,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/habitly-app-icon.png"
     },
     "plugins": [
       [
@@ -41,9 +39,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F7F6FA",
+          "image": "./assets/images/habitly-mark.png",
+          "imageWidth": 96
         }
       ],
       "expo-sqlite",

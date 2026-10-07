@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
-import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyTheme } from '../../features/app/AppProvider';
 import { calculateStreak } from '../../features/habits/domain';
 import { HabitForm } from '../../features/habits/HabitForm';
 import type { Habit, HabitEntry } from '../../features/habits/types';
@@ -21,9 +21,12 @@ const SORTS: HabitSort[] = ['Streak', 'Week progress', 'Name A–Z'];
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function Habits() {
+  useHabitlyTheme();
   const habits = useHabitlyHabits();
   const entries = useHabitlyEntries();
-  const { setEntry, archiveHabit, deleteHabit } = useHabitlyActions();
+  const { setEntry, archiveHabit, deleteHabit, reload } = useHabitlyActions();
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => { setRefreshing(true); try { await reload(); } finally { setRefreshing(false); } };
   const today = dateKey();
   const [filter, setFilter] = useState<HabitFilter>('All');
   const [sort, setSort] = useState<HabitSort>('Streak');
@@ -58,7 +61,7 @@ export default function Habits() {
     <View style={{ flex: 1, backgroundColor: palette.canvas, overflow: 'hidden' }}>
       <HabitsBackdrop />
       <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1 }}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={palette.purple} colors={[palette.purple]} />}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ color: palette.ink, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 }}>Habits</Text>

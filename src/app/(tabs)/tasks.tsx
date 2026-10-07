@@ -5,7 +5,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { Button, IconButton, Screen } from '../../components/ui/Primitives';
-import { useHabitlyActions, useHabitlyTasks } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyTasks, useHabitlyTheme } from '../../features/app/AppProvider';
 import { TaskForm } from '../../features/tasks/TaskForm';
 import type { Task } from '../../features/tasks/types';
 import { palette } from '../../theme/tokens';
@@ -16,6 +16,7 @@ type TaskFilter = 'Today' | 'Upcoming' | 'Completed';
 const FILTERS: TaskFilter[] = ['Today', 'Upcoming', 'Completed'];
 
 export default function Tasks() {
+  useHabitlyTheme();
   const tasks = useHabitlyTasks();
   const { toggleTask, deleteTask } = useHabitlyActions();
   const [filter, setFilter] = useState<TaskFilter>('Today');
@@ -41,7 +42,7 @@ export default function Tasks() {
     </View>
 
     <View style={{ flexDirection: 'row', gap: 5, padding: 4, borderRadius: 18, backgroundColor: palette.surfaceSoft }}>
-      {FILTERS.map(value => { const selected = filter === value; const count = value === 'Today' ? tasks.filter(task => task.dueDate <= today).length : value === 'Upcoming' ? tasks.filter(task => !task.completed && task.dueDate > today).length : tasks.filter(task => task.completed).length; return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setFilter(value)} style={({ pressed }) => ({ flex: 1, minHeight: 41, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: selected ? palette.purpleSoft : 'transparent', opacity: pressed ? 0.75 : 1 })}><Text style={{ color: selected ? palette.ink : palette.muted, fontSize: 12, fontWeight: selected ? '700' : '500' }}>{value}{count > 0 ? ` · ${count}` : ''}</Text></Pressable>; })}
+      {FILTERS.map(value => { const selected = filter === value; const count = value === 'Today' ? tasks.filter(task => task.dueDate <= today).length : value === 'Upcoming' ? tasks.filter(task => !task.completed && task.dueDate > today).length : tasks.filter(task => task.completed).length; return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setFilter(value)} style={{ flex: 1, minHeight: 41, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: selected ? palette.purpleSoft : 'transparent' }}><Text style={{ color: selected ? palette.ink : palette.muted, fontSize: 12, fontWeight: selected ? '700' : '500' }}>{value}{count > 0 ? ` · ${count}` : ''}</Text></Pressable>; })}
     </View>
 
     {filter === 'Today' && <Animated.View entering={FadeInDown.duration(230)} style={{ padding: 15, borderRadius: 22, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, flexDirection: 'row', alignItems: 'center', gap: 14 }}>

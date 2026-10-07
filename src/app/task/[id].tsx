@@ -13,10 +13,10 @@ import { palette } from '../../theme/tokens';
 import { dateKey, shortDate } from '../../utils/dates';
 
 export default function TaskDetail() {
+  useHabitlyTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const tasks = useHabitlyTasks();
   const { toggleTask, setTaskSubtasks, deleteTask } = useHabitlyActions();
-  const { resolvedTheme } = useHabitlyTheme();
   const task = tasks.find(item => item.id === id);
   const [formOpen, setFormOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -80,7 +80,7 @@ export default function TaskDetail() {
         {task.reminders.length > 0 && <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9, paddingHorizontal: 4 }}><MaterialCommunityIcons name="bell-outline" size={17} color={palette.purple} /><Text style={{ flex: 1, color: palette.muted, fontSize: 12, lineHeight: 18 }}>Reminders: {task.reminders.map(reminderLabel).join(', ')}</Text></View>}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
           <Pressable accessibilityRole="button" onPress={() => void toggleTask(task)} style={{ flex: 1, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, backgroundColor: palette.purpleSoft }}><MaterialCommunityIcons name={task.completed ? 'undo' : 'check'} size={19} color={palette.purple} /><Text style={{ color: palette.purple, fontSize: 13, fontWeight: '700' }}>{task.completed ? 'Reopen task' : 'Mark Complete'}</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setFormOpen(true)} style={{ flex: 1, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, backgroundColor: resolvedTheme === 'dark' ? palette.purple : '#19181D' }}><MaterialCommunityIcons name="pencil-outline" size={18} color={resolvedTheme === 'dark' ? palette.onPrimary : '#FFFFFF'} /><Text style={{ color: resolvedTheme === 'dark' ? palette.onPrimary : '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Edit Task</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => setFormOpen(true)} style={{ flex: 1, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, backgroundColor: '#19181D' }}><MaterialCommunityIcons name="pencil-outline" size={18} color="#FFFFFF" /><Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Edit Task</Text></Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

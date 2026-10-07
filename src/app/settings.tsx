@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { BackHandler, InteractionManager, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { TimeDialog } from '../components/ui/DateTimeDialogs';
 import { Screen } from '../components/ui/Primitives';
@@ -8,7 +8,7 @@ import { SmoothSwitch } from '../components/ui/SmoothSwitch';
 import { useHabitlyActions, useHabitlyHabits, useHabitlyProfile, useHabitlyTasks, useHabitlyTheme } from '../features/app/AppProvider';
 import { cancelAllReminders, cancelEntityReminders, cancelReminder, scheduleDailyNudge, scheduleHabitReminders } from '../services/notifications';
 import { clearLocalData, exportLocalData, habitsRepository, preferencesRepository } from '../database/repositories';
-import { palette } from '../theme/tokens';
+import { palette, softAccent } from '../theme/tokens';
 
 type Panel = 'sync' | 'export' | 'notifications' | null;
 type TimeTarget = 'summary' | 'quote' | null;
@@ -16,7 +16,7 @@ const accents = ['#8068EA', '#568CEB', '#51A77A', '#F29B48', '#E27C9C', '#E2B84C
 
 export default function Settings() {
   const { profileName } = useHabitlyProfile();
-  const { theme, accent } = useHabitlyTheme();
+  const { accent } = useHabitlyTheme();
   const habits = useHabitlyHabits();
   const tasks = useHabitlyTasks();
   const { setPreference, reload } = useHabitlyActions();
@@ -36,15 +36,24 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [working, setWorking] = useState(false);
 
+  const goBack = useCallback(() => router.dismissTo('/(tabs)/profile'), []);
+  useFocusEffect(useCallback(() => {
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => { goBack(); return true; });
+    return () => listener.remove();
+  }, [goBack]));
+
   useEffect(() => {
-    void Promise.all([
+    let active = true;
+    const task = InteractionManager.runAfterInteractions(() => { void Promise.all([
       preferencesRepository.get('habitRemindersEnabled', 'true'), preferencesRepository.get('dailySummaryEnabled', 'false'),
       preferencesRepository.get('motivationalQuotesEnabled', 'false'), preferencesRepository.get('dailySummaryTime', '20:30'),
       preferencesRepository.get('motivationalQuotesTime', '08:00'),
     ]).then(([habitsOn, summaryOn, quotesOn, summaryAt, quoteAt]) => {
+      if (!active) return;
       setHabitReminders(habitsOn !== 'false'); setDailySummary(summaryOn === 'true'); setMotivationalQuotes(quotesOn === 'true');
       setSummaryTime(summaryAt); setQuoteTime(quoteAt);
-    });
+    }); });
+    return () => { active = false; task.cancel(); };
   }, []);
 
   const saveName = async () => { if (name.trim()) { await setPreference('profileName', name.trim()); setEditingName(false); } };
@@ -125,7 +134,7 @@ export default function Settings() {
   const clearData = async () => { setWorking(true); setMessage(''); try { await cancelAllReminders(); await clearLocalData(); await reload(); setHabitReminders(true); setDailySummary(false); setMotivationalQuotes(false); setConfirmClear(false); setPanel(null); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not clear local data.'); } finally { setWorking(false); } };
 
   return <View style={{ flex: 1, backgroundColor: palette.canvas }}><Screen style={{ paddingBottom: 24 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} style={iconButton()}><MaterialCommunityIcons name="arrow-left" size={21} color={palette.ink} /></Pressable><View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 29, fontWeight: '800', letterSpacing: -.5 }}>Settings</Text><Text style={{ color: palette.muted, fontSize: 13, marginTop: 2 }}>Customize your experience.</Text></View></View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={goBack} style={iconButton()}><MaterialCommunityIcons name="arrow-left" size={21} color={palette.ink} /></Pressable><View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 29, fontWeight: '800', letterSpacing: -.5 }}>Settings</Text><Text style={{ color: palette.muted, fontSize: 13, marginTop: 2 }}>Customize your experience.</Text></View></View>
     <Pressable accessibilityRole="button" onPress={() => { setName(profileName); setEditingName(true); }} style={{ minHeight: 66, borderRadius: 20, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.line }}><RowIcon icon="account-outline" /><View style={{ flex: 1 }}><Text style={rowTitle()}>{profileName}</Text><Text style={rowSubtitle()}>Edit your profile name</Text></View><MaterialCommunityIcons name="pencil-outline" size={18} color={palette.muted} /></Pressable>
 
     <SectionTitle title="Notifications" />
@@ -136,7 +145,7 @@ export default function Settings() {
     </View>
 
     <SectionTitle title="Appearance" />
-    <View style={groupStyle()}><View style={{ paddingHorizontal: 14, paddingTop: 13 }}><Text style={{ color: palette.ink, fontSize: 13, fontWeight: '600' }}>Theme</Text><View style={{ flexDirection: 'row', gap: 7, marginTop: 9 }}>{['light', 'dark', 'system'].map(option => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: theme === option }} onPress={() => void setPreference('theme', option)} style={{ flex: 1, minHeight: 37, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme === option ? palette.purple : palette.surfaceSoft }}><Text style={{ color: theme === option ? palette.onPrimary : palette.muted, fontSize: 11, fontWeight: '600' }}>{option[0].toUpperCase() + option.slice(1)}</Text></Pressable>)}</View></View>
+    <View style={groupStyle()}>
       <View style={{ paddingHorizontal: 14, paddingVertical: 13 }}><Text style={{ color: palette.ink, fontSize: 13, fontWeight: '600' }}>Accent color</Text><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 7, marginTop: 11 }}>{accents.map(color => <Pressable key={color} accessibilityRole="radio" accessibilityState={{ selected: accent === color }} accessibilityLabel={`Set accent ${color}`} onPress={() => void setPreference('accent', color)} style={{ width: 35, height: 35, borderRadius: 18, backgroundColor: color, borderWidth: accent === color ? 3 : 1, borderColor: accent === color ? palette.ink : palette.line, alignItems: 'center', justifyContent: 'center' }}>{accent === color && <MaterialCommunityIcons name="check" size={17} color="white" />}</Pressable>)}</View></View>
     </View>
 
@@ -166,7 +175,7 @@ function SectionTitle({ title }: { title: string }) { return <Text style={{ colo
 function ToggleRow({ icon, title, subtitle, value, onChange, disabled = false }: { icon: string; title: string; subtitle: string; value: boolean; onChange: (next: boolean) => void; disabled?: boolean }) { return <View style={rowStyle()}><RowIcon icon={icon} /><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={rowTitle()}>{title}</Text><Text numberOfLines={2} style={rowSubtitle()}>{subtitle}</Text></View><SmoothSwitch value={value} disabled={disabled} onChange={onChange} label={`${title} reminders`} /></View>; }
 function TimeRow({ icon, title, subtitle, value, time, onToggle, onTime, disabled, last }: { icon: string; title: string; subtitle: string; value: boolean; time: string; onToggle: (next: boolean) => void; onTime: () => void; disabled: boolean; last?: boolean }) { return <View style={[rowStyle(), !last && { borderBottomWidth: 1, borderColor: palette.line }]}><RowIcon icon={icon} /><View style={{ flex: 1 }}><Text style={rowTitle()}>{title}</Text><Text style={rowSubtitle()}>{subtitle}</Text><Pressable accessibilityRole="button" onPress={onTime} style={{ alignSelf: 'flex-start', marginTop: 6 }}><Text style={{ color: palette.purple, fontSize: 11, fontWeight: '700' }}>At {formatTime(time)}</Text></Pressable></View><SmoothSwitch value={value} disabled={disabled} onChange={onToggle} label={`${title} reminder`} /></View>; }
 function SettingRow({ icon, title, subtitle, destructive, onPress, last }: { icon: string; title: string; subtitle: string; destructive?: boolean; onPress: () => void; last?: boolean }) { return <Pressable accessibilityRole="button" onPress={onPress} style={[rowStyle(), !last && { borderBottomWidth: 1, borderColor: palette.line }]}><RowIcon icon={icon} /><View style={{ flex: 1 }}><Text style={[rowTitle(), destructive && { color: palette.danger }]}>{title}</Text><Text style={rowSubtitle()}>{subtitle}</Text></View><MaterialCommunityIcons name="chevron-right" size={20} color={palette.muted} /></Pressable>; }
-function RowIcon({ icon }: { icon: string }) { return <View style={{ width: 38, height: 38, borderRadius: 14, backgroundColor: palette.purpleSoft, alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={19} color={palette.purple} /></View>; }
+function RowIcon({ icon }: { icon: string }) { const { accent } = useHabitlyTheme(); return <View style={{ width: 38, height: 38, borderRadius: 14, backgroundColor: softAccent(accent), alignItems: 'center', justifyContent: 'center' }}><MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={19} color={accent} /></View>; }
 function ActionButton({ label, onPress, secondary, destructive }: { label: string; onPress: () => void; secondary?: boolean; destructive?: boolean }) { return <Pressable accessibilityRole="button" onPress={onPress} style={{ flex: 1, minHeight: 47, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: destructive ? palette.danger : secondary ? palette.purpleSoft : palette.purple }}><Text style={{ color: destructive || !secondary ? palette.onPrimary : palette.purple, fontSize: 13, fontWeight: '700' }}>{label}</Text></Pressable>; }
 const rowStyle = () => ({ minHeight: 66, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, paddingHorizontal: 13, paddingVertical: 9 });
 const groupStyle = () => ({ borderRadius: 22, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.line, paddingVertical: 2 });

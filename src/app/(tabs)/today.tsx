@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,7 +26,9 @@ export default function Today() {
   const entries = useHabitlyEntries();
   const tasks = useHabitlyTasks();
   const { profileName } = useHabitlyProfile();
-  const { setEntry, toggleTask, deleteTask } = useHabitlyActions();
+  const { setEntry, toggleTask, deleteTask, reload } = useHabitlyActions();
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => { setRefreshing(true); try { await reload(); } finally { setRefreshing(false); } };
   const insets = useSafeAreaInsets();
   const today = dateKey();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -36,14 +38,19 @@ export default function Today() {
   const [confirmDelete, setConfirmDelete] = useState<Task>();
   const [celebration, setCelebration] = useState<{ habit: Habit; streak: number }>();
 
-  const selectedDay = new Date(`${selectedDate}T12:00:00`);
-  const activeHabits = habits.filter(habit => !habit.archived && habit.schedule.includes(selectedDay.getDay()));
-  const completed = activeHabits.filter(habit => entries.some(entry => entry.habitId === habit.id && entry.date === selectedDate && entry.completed)).length;
-  const progress = activeHabits.length ? Math.round(completed / activeHabits.length * 100) : 0;
-  const startOfWeek = addDays(new Date(`${today}T12:00:00`), -((new Date(`${today}T12:00:00`).getDay() + 6) % 7));
-  const week = Array.from({ length: 7 }, (_, index) => addDays(startOfWeek, index));
-  const dateTasks = tasks.filter(task => task.dueDate === selectedDate).slice(0, 3);
-  const currentStreak = Math.max(0, ...habits.filter(habit => !habit.archived).map(habit => calculateStreak(habit, entries)));
+  const selectedDay = useMemo(() => new Date(`${selectedDate}T12:00:00`), [selectedDate]);
+  // Derived lists and streak math walk every habit/entry, so memoize them:
+  // otherwise each render (or page mount) blocks the UI thread.
+  const { activeHabits, completed, progress, week, dateTasks, currentStreak } = useMemo(() => {
+    const activeHabits = habits.filter(habit => !habit.archived && habit.schedule.includes(selectedDay.getDay()));
+    const completed = activeHabits.filter(habit => entries.some(entry => entry.habitId === habit.id && entry.date === selectedDate && entry.completed)).length;
+    const progress = activeHabits.length ? Math.round(completed / activeHabits.length * 100) : 0;
+    const startOfWeek = addDays(new Date(`${today}T12:00:00`), -((new Date(`${today}T12:00:00`).getDay() + 6) % 7));
+    const week = Array.from({ length: 7 }, (_, index) => addDays(startOfWeek, index));
+    const dateTasks = tasks.filter(task => task.dueDate === selectedDate).slice(0, 3);
+    const currentStreak = Math.max(0, ...habits.filter(habit => !habit.archived).map(habit => calculateStreak(habit, entries)));
+    return { activeHabits, completed, progress, week, dateTasks, currentStreak };
+  }, [habits, entries, tasks, selectedDate, selectedDay, today]);
   const bestWeekday = useMemo(() => {
     const completions = Array.from({ length: 7 }, () => 0);
     entries.filter(entry => entry.completed).forEach(entry => {
@@ -72,7 +79,7 @@ export default function Today() {
     <View style={{ flex: 1, backgroundColor: palette.canvas, overflow: 'hidden' }}>
       <TodayBackdrop />
       <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1 }}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 164, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 164, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={palette.purple} colors={[palette.purple]} />}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
               <Text style={{ color: palette.ink, fontSize: 26, fontWeight: '700', letterSpacing: -0.6 }}>Good morning,</Text>
