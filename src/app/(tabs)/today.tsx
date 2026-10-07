@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { ActionSheet } from '../../components/ui/ActionSheet';
 import { TaskForm } from '../../features/tasks/TaskForm';
 import type { Task } from '../../features/tasks/types';
-import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyProfile, useHabitlyTasks } from '../../features/app/AppProvider';
+import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyProfile, useHabitlyTasks, useHabitlyTheme } from '../../features/app/AppProvider';
 import { calculateStreak } from '../../features/habits/domain';
 import type { Habit } from '../../features/habits/types';
 import { CelebrationModal } from '../../features/habits/CelebrationModal';
@@ -19,6 +19,9 @@ const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function Today() {
+  // Subscribe the custom home screen directly to theme changes. The other tab
+  // screens get this subscription from Screen; Today owns its safe area itself.
+  useHabitlyTheme();
   const habits = useHabitlyHabits();
   const entries = useHabitlyEntries();
   const tasks = useHabitlyTasks();

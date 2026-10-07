@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router, usePathname, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Today from './today';
@@ -9,9 +9,8 @@ import Habits from './habits';
 import Tasks from './tasks';
 import Stats from './stats';
 import Profile from './profile';
-import { useHabitlyTheme } from '../../features/app/AppProvider';
 import { palette } from '../../theme/tokens';
-import { pageIndexAtOffset } from '../../features/navigation/pager';
+import { pageIndexAtOffset, shouldAnimateTabTap } from '../../features/navigation/pager';
 
 const tabs = [
   { name: 'today', label: 'Today', active: 'view-dashboard', inactive: 'view-dashboard-outline', path: '/(tabs)/today' },
@@ -22,10 +21,10 @@ const tabs = [
 ] as const;
 const pages = [Today, Habits, Tasks, Stats, Profile];
 const paths: Href[] = tabs.map(tab => tab.path);
+const pageIndexes = [0, 1, 2, 3, 4];
 const PageList = Animated.FlatList<number>;
 
 export default function TabLayout() {
-  const { resolvedTheme } = useHabitlyTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const pathname = usePathname();
@@ -37,6 +36,7 @@ export default function TabLayout() {
   const currentPage = useRef(initialIndex);
   const previousWidth = useRef(width);
   const pendingSettle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tappedTarget = useRef<number | null>(null);
   const progress = useSharedValue(initialIndex);
   const lastReportedIndex = useSharedValue(initialIndex);
   const cellWidth = (width - 32 - 12) / tabs.length;
@@ -45,6 +45,13 @@ export default function TabLayout() {
     if (pendingSettle.current) clearTimeout(pendingSettle.current);
     pendingSettle.current = null;
   }, []);
+
+  const keyExtractor = useCallback((index: number) => tabs[index].name, []);
+  const getItemLayout = useCallback((_: ArrayLike<number> | null | undefined, index: number) => ({
+    length: width,
+    offset: width * index,
+    index,
+  }), [width]);
 
   const settlePage = useCallback((offsetX: number) => {
     const index = pageIndexAtOffset(offsetX, width, tabs.length);
@@ -125,8 +132,26 @@ export default function TabLayout() {
   const onMomentumScrollBegin = useCallback(() => cancelSettle(), [cancelSettle]);
   const onMomentumScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     cancelSettle();
-    settlePage(event.nativeEvent.contentOffset.x);
-  }, [cancelSettle, settlePage]);
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const requestedPage = tappedTarget.current;
+    if (requestedPage !== null) {
+      tappedTarget.current = null;
+      const settledIndex = pageIndexAtOffset(offsetX, width, tabs.length);
+      if (settledIndex !== requestedPage) {
+        // A previous fling can finish after a newer tab tap. Correct to the latest
+        // request without replaying the intermediate pages or changing routes twice.
+        pager.current?.scrollToOffset({ offset: requestedPage * width, animated: false });
+        settlePage(requestedPage * width);
+        return;
+      }
+    }
+    settlePage(offsetX);
+  }, [cancelSettle, settlePage, width]);
+
+  const onScrollBeginDrag = useCallback(() => {
+    tappedTarget.current = null;
+    cancelSettle();
+  }, [cancelSettle]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: progress.value * cellWidth }],
@@ -140,10 +165,9 @@ export default function TabLayout() {
   return <View style={{ flex: 1, backgroundColor: palette.canvas }}>
     <PageList
       ref={pager}
-      data={[0, 1, 2, 3, 4]}
+      data={pageIndexes}
       renderItem={renderPage}
-      keyExtractor={index => tabs[index].name}
-      extraData={resolvedTheme}
+      keyExtractor={keyExtractor}
       horizontal
       pagingEnabled
       directionalLockEnabled
@@ -151,13 +175,14 @@ export default function TabLayout() {
       bounces={false}
       decelerationRate="fast"
       initialScrollIndex={initialIndex}
-      getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+      getItemLayout={getItemLayout}
       initialNumToRender={1}
       maxToRenderPerBatch={1}
       windowSize={3}
       onScroll={onScroll}
       scrollEventThrottle={16}
       onScrollEndDrag={onScrollEndDrag}
+      onScrollBeginDrag={onScrollBeginDrag}
       onMomentumScrollBegin={onMomentumScrollBegin}
       onMomentumScrollEnd={onMomentumScrollEnd}
       removeClippedSubviews
@@ -173,11 +198,33 @@ export default function TabLayout() {
           accessibilityState={{ selected: selectedIndex === index }}
           accessibilityLabel={tab.label}
           onPress={() => {
-            if (pendingSettle.current) clearTimeout(pendingSettle.current);
+            cancelSettle();
+            const previousPage = currentPage.current;
             currentPage.current = index;
             setSelectedIndex(index);
-            pager.current?.scrollToOffset({ offset: index * width, animated: true });
-            pendingSettle.current = setTimeout(() => settlePage(index * width), 420);
+            const offset = index * width;
+            if (index === previousPage) {
+              tappedTarget.current = null;
+              settlePage(offset);
+              return;
+            }
+            if (!shouldAnimateTabTap(previousPage, index)) {
+              tappedTarget.current = null;
+              pager.current?.scrollToOffset({ offset, animated: false });
+              // The page jumps directly while the tab highlight retains a short,
+              // smooth transition. No intermediate screen needs to mount.
+              progress.value = withTiming(index, { duration: 160 });
+              settlePage(offset);
+              return;
+            }
+            tappedTarget.current = index;
+            pager.current?.scrollToOffset({ offset, animated: true });
+            pendingSettle.current = setTimeout(() => {
+              if (tappedTarget.current !== index) return;
+              tappedTarget.current = null;
+              pager.current?.scrollToOffset({ offset, animated: false });
+              settlePage(offset);
+            }, 550);
           }}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}
         >
