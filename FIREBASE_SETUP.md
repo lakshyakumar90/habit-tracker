@@ -13,7 +13,7 @@ The Firebase web values are in the ignored `.env.local`, and the supplied Androi
 
 Local builds use `.env.local` and `google-services.json`. Do not commit those files. The web Firebase configuration is public client configuration, but the file is kept local to avoid accidentally changing environments in source control. Analytics is not initialized because this app does not use analytics.
 
-For EAS Build, create the seven `EXPO_PUBLIC_` values from [`.env.example`](./.env.example) in the matching **development**, **preview**, and **production** EAS environments. Upload `google-services.json` as a **file** environment variable named `GOOGLE_SERVICES_JSON` in each environment. [`app.config.js`](./app.config.js) uses that path in cloud builds. [`eas.json`](./eas.json) selects the corresponding environment for each profile.
+The **preview** EAS environment now has the seven `EXPO_PUBLIC_` values from [`.env.example`](./.env.example) and `GOOGLE_SERVICES_JSON` as a sensitive file variable. For later **development** and **production** builds, create the same eight variables in those EAS environments before building. [`app.config.js`](./app.config.js) uses the file path on the build worker and rejects an EAS build with missing Firebase values. [`eas.json`](./eas.json) selects the corresponding environment for each profile.
 
 Restart Metro after changing `.env.local` and create a new Android development or production build. Google sign-in uses a native module and cannot run in Expo Go or a build made before this configuration.
 
