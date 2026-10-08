@@ -18,6 +18,8 @@ const luminance = (hex: string) => {
   return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
 };
 export const onAccent = (color: string) => luminance(color) > 0.18 ? '#211E2B' : '#FFFFFF';
+const whiteControlAccents = new Set(['#8068EA', '#568CEB', '#51A77A', '#E27C9C']);
+export const onAccentControl = (color: string) => whiteControlAccents.has(color.toUpperCase()) ? '#FFFFFF' : onAccent(color);
 export const setPaletteAccent = (color: string) => { if (/^#[\da-f]{6}$/i.test(color)) accent = color; };
 export const palette = new Proxy(light, {
   get: (_target, key: string | symbol) => {

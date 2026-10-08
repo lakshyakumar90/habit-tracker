@@ -11,7 +11,7 @@ import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyProfi
 import { calculateStreak } from '../../features/habits/domain';
 import type { Habit } from '../../features/habits/types';
 import { CelebrationModal } from '../../features/habits/CelebrationModal';
-import { palette } from '../../theme/tokens';
+import { onAccentControl, palette } from '../../theme/tokens';
 import { addDays, dateKey, shortDate } from '../../utils/dates';
 import { appRoute } from '../../utils/routes';
 
@@ -122,7 +122,7 @@ export default function Today() {
           <SectionHeading title="Today’s habits" action="See all" onPress={() => router.push('/(tabs)/habits')} />
           {activeHabits.length ? (
             <View style={listCardStyle()}>
-              {activeHabits.map((habit, index) => <TodayHabitRow key={habit.id} habit={habit} date={selectedDate} last={index === activeHabits.length - 1} onToggle={() => void toggleHabit(habit)} onOpen={() => router.push(appRoute({ pathname: '/habit/[id]', params: { id: habit.id } }))} />)}
+              {activeHabits.map((habit, index) => <TodayHabitRow key={habit.id} habit={habit} date={selectedDate} last={index === activeHabits.length - 1} onToggle={() => void toggleHabit(habit)} onOpen={() => router.push(appRoute({ pathname: '/habit/[id]', params: { id: habit.id, from: 'today' } }))} />)}
             </View>
           ) : (
             <View style={cardStyle({ padding: 18, alignItems: 'center', gap: 7 })}>
@@ -148,7 +148,7 @@ export default function Today() {
       </SafeAreaView>
 
       <Pressable accessibilityRole="button" accessibilityLabel="Add task" onPress={openCreateTask} style={{ position: 'absolute', right: 27, bottom: Math.max(insets.bottom, 8) + 84, width: 58, height: 58, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.purple, elevation: 8, shadowColor: palette.purple, shadowOpacity: 0.26, shadowRadius: 13, shadowOffset: { width: 0, height: 6 } }}>
-        <MaterialCommunityIcons name="plus" size={30} color={palette.onPrimary} />
+        <MaterialCommunityIcons name="plus" size={30} color={onAccentControl(palette.purple)} />
       </Pressable>
 
       {showTaskForm && <TaskForm key={editingTask?.id ?? 'new'} task={editingTask} onClose={closeTaskForm} />}
@@ -217,7 +217,7 @@ function TodayHabitRow({ habit, date, last, onToggle, onOpen }: { habit: Habit; 
       <Text numberOfLines={1} style={{ color: palette.muted, fontSize: 13 }}>{detail}</Text>
     </Pressable>
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Mark ${habit.name} ${done ? 'incomplete' : 'complete'} for ${date}`} onPress={onToggle} style={{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? palette.purple : 'transparent', borderWidth: done ? 0 : 2, borderColor: done ? palette.purple : palette.line }}>
-      {done && <MaterialCommunityIcons name="check" size={23} color={palette.onPrimary} />}
+      {done && <MaterialCommunityIcons name="check" size={23} color={onAccentControl(palette.purple)} />}
     </Pressable>
   </View>;
 }

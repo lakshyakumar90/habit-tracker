@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "habit-tracker",
+    "name": "Habitly",
     "slug": "habit-tracker",
     "version": "1.0.0",
     "platforms": ["android", "web"],
     "orientation": "portrait",
-    "icon": "./assets/images/habitly-app-icon.png",
+    "icon": "./assets/images/Habitly_Logo_Transparent.png",
     "scheme": "habittracker",
     "userInterfaceStyle": "light",
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#D7C9FF",
-        "foregroundImage": "./assets/images/habitly-mark.png"
+        "foregroundImage": "./assets/images/Habitly_Logo_Transparent.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.lakshya.kumar.habittracker"
@@ -19,7 +19,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/habitly-app-icon.png"
+      "favicon": "./assets/images/Habitly_Logo_Transparent.png"
     },
     "plugins": [
       [
@@ -38,7 +38,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#F7F6FA",
-          "image": "./assets/images/habitly-mark.png",
+          "image": "./assets/images/Habitly_Logo_Transparent.png",
           "imageWidth": 96
         }
       ],

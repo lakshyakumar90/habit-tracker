@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Animated, { FadeIn, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
@@ -217,7 +217,7 @@ function ReadyStep({ name, notice, onGoogle, onGuest }: { name: string; notice: 
       <AccountActionButton label="Continue as Guest" icon="account-outline" onPress={onGuest} />
     </View>
     {!!notice && <Text accessibilityRole="alert" style={{ color: theme.muted, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>{notice}</Text>}
-    <Text style={{ maxWidth: 290, color: theme.muted, textAlign: 'center', fontSize: 11, lineHeight: 16, marginTop: 3 }}>By continuing, you agree to our Terms and Privacy Policy.</Text>
+    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://lakshyakumar.in/habitly/privacy-policy')}><Text style={{ maxWidth: 290, color: theme.muted, textAlign: 'center', fontSize: 11, lineHeight: 16, marginTop: 3, textDecorationLine: 'underline' }}>Read the Habitly Privacy Policy</Text></Pressable>
   </View>;
 }
 

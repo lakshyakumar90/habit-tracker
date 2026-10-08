@@ -1,10 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
-import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, type User } from 'firebase/auth';
-import { setDatabaseOwner } from '../../database/client';
+import * as SQLite from 'expo-sqlite';
+import { GoogleAuthProvider, onAuthStateChanged, reauthenticateWithCredential, reauthenticateWithPopup, signInWithCredential, signInWithPopup, signOut, type User } from 'firebase/auth';
+import { getDatabase, setDatabaseOwner } from '../../database/client';
 import { firebaseConfigured, googleWebClientId, requireFirebase } from '../../services/firebase';
 import { importGuestDataForNewAccount } from '../../services/accountBootstrap';
 import { startCloudSync } from '../../services/cloudSync';
+import { deleteSyncedAccountData } from '../../services/accountDeletion';
+import { cancelAllReminders } from '../../services/notifications';
 import { reconcileDeviceReminders, suspendDeviceReminders } from '../../services/deviceReminders';
 import { useHabitlyActions, useHabitlyStatus } from '../app/AppProvider';
 import { palette } from '../../theme/tokens';
@@ -17,9 +20,12 @@ type AccountContextValue = {
   syncStatus: SyncStatus;
   signInWithGoogle: () => Promise<void>;
   signOutAccount: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   syncNow: () => Promise<void>;
   setSyncStatus: (status: SyncStatus) => void;
   setSyncNow: (callback: (() => Promise<void>) | null) => void;
+  setSyncStop: (callback: (() => void) | null) => void;
+  syncEpoch: number;
 };
 const AccountContext = createContext<AccountContextValue | null>(null);
 
@@ -33,8 +39,13 @@ export function CloudAccountProvider({ children }: { children: React.ReactNode }
   const activated = useRef<string | null>(null);
   const booted = useRef(false);
   const activation = useRef<Promise<void> | null>(null);
+  const syncStop = useRef<(() => void) | null>(null);
+  const deleting = useRef(false);
+  const [syncEpoch, setSyncEpoch] = useState(0);
+  const setSyncStop = useCallback((callback: (() => void) | null) => { syncStop.current = callback; }, []);
 
   const activate = useCallback(async (nextUser: User | null): Promise<void> => {
+    if (deleting.current && !nextUser) return;
     const nextKey = nextUser?.uid ?? null;
     if (activation.current) await activation.current;
     if (activated.current === nextKey && booted.current) return Promise.resolve();
@@ -94,26 +105,73 @@ export function CloudAccountProvider({ children }: { children: React.ReactNode }
     }
   }, [activate]);
 
+  const deleteAccount = useCallback(async () => {
+    const current = requireFirebase().auth.currentUser;
+    if (!current) throw new Error('Sign in before deleting your account.');
+    const token = await current.getIdTokenResult();
+    const signedInAt = new Date(token.authTime).getTime();
+    if (!Number.isFinite(signedInAt) || Date.now() - signedInAt > 4 * 60_000) {
+      if (Platform.OS === 'web') {
+        await reauthenticateWithPopup(current, new GoogleAuthProvider());
+      } else {
+        const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
+        GoogleSignin.configure({ webClientId: googleWebClientId });
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const result = await GoogleSignin.signIn();
+        const idToken = result.data?.idToken;
+        if (!idToken) throw new Error('Google did not return a fresh sign-in token.');
+        await reauthenticateWithCredential(current, GoogleAuthProvider.credential(idToken));
+      }
+    }
+    deleting.current = true;
+    syncStop.current?.();
+    syncStop.current = null;
+    try {
+      const local = await getDatabase();
+      await deleteSyncedAccountData();
+      try { await cancelAllReminders(); } catch { /* Account deletion has already succeeded. */ }
+      let localCleared = false;
+      try {
+        await local.execAsync('DELETE FROM habit_entries; DELETE FROM habits; DELETE FROM tasks; DELETE FROM preferences; DELETE FROM sync_outbox;');
+        localCleared = true;
+        await local.closeAsync();
+        await SQLite.deleteDatabaseAsync(`habitly-${current.uid}.db`);
+      } catch { /* Cleared rows are sufficient if Android still holds the SQLite file. */ }
+      await signOut(requireFirebase().auth);
+      deleting.current = false;
+      await activate(null);
+      if (Platform.OS !== 'web') {
+        try { const { GoogleSignin } = await import('@react-native-google-signin/google-signin'); await GoogleSignin.signOut(); } catch { /* Firebase account is deleted. */ }
+      }
+      if (!localCleared) throw new Error('Your cloud account was deleted, but local data could not be cleared. Clear Habitly app storage on this device.');
+    } catch (error) {
+      deleting.current = false;
+      setSyncEpoch(value => value + 1);
+      throw error;
+    }
+  }, [activate]);
+
   const value = useMemo<AccountContextValue>(() => ({
     user, accountKey: user?.uid ?? 'guest', configured: firebaseConfigured, syncStatus,
-    signInWithGoogle, signOutAccount, syncNow,
-    setSyncStatus, setSyncNow,
-  }), [user, syncStatus, signInWithGoogle, signOutAccount, syncNow, setSyncNow]);
+    signInWithGoogle, signOutAccount, deleteAccount, syncNow,
+    setSyncStatus, setSyncNow, setSyncStop, syncEpoch,
+  }), [user, syncStatus, signInWithGoogle, signOutAccount, deleteAccount, syncNow, setSyncNow, setSyncStop, syncEpoch]);
 
   if (!ready) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.canvas }}><ActivityIndicator color={palette.purple} /></View>;
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 
 export function CloudSyncBridge() {
-  const { user, setSyncNow, setSyncStatus } = useCloudAccount();
+  const { user, setSyncNow, setSyncStop, setSyncStatus, syncEpoch } = useCloudAccount();
   const { reload } = useHabitlyActions();
   const { ready } = useHabitlyStatus();
   useEffect(() => {
     if (!user || !ready) return;
     const session = startCloudSync(user.uid, reload, setSyncStatus);
     setSyncNow(session.sync);
-    return () => { setSyncNow(null); session.stop(); };
-  }, [user, ready, setSyncNow, setSyncStatus, reload]);
+    setSyncStop(session.stop);
+    return () => { setSyncNow(null); setSyncStop(null); session.stop(); };
+  }, [user, ready, setSyncNow, setSyncStop, setSyncStatus, reload, syncEpoch]);
   return null;
 }
 

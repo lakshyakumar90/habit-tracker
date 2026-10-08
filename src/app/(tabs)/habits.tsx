@@ -83,7 +83,7 @@ export default function Habits() {
             </Pressable>
           </View>
 
-          {visibleHabits.length ? visibleHabits.map(habit => <HabitOverviewCard key={habit.id} habit={habit} week={week} today={today} entries={entries} metrics={metrics.get(habit.id) ?? getHabitMetrics(habit, entries, startOfWeek, today)} onOpen={() => router.push(appRoute({ pathname: '/habit/[id]', params: { id: habit.id } }))} onManage={() => setActionHabit(habit)} onToggleDate={toggleDate} />) : (
+          {visibleHabits.length ? visibleHabits.map(habit => <HabitOverviewCard key={habit.id} habit={habit} week={week} today={today} entries={entries} metrics={metrics.get(habit.id) ?? getHabitMetrics(habit, entries, startOfWeek, today)} onOpen={() => router.push(appRoute({ pathname: '/habit/[id]', params: { id: habit.id, from: 'habits' } }))} onManage={() => setActionHabit(habit)} onToggleDate={toggleDate} />) : (
             <View style={{ borderRadius: 24, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.card, alignItems: 'center', paddingHorizontal: 22, paddingVertical: 30, gap: 9 }}>
               <MaterialCommunityIcons name={filter === 'Archived' ? 'archive-outline' : 'sprout-outline'} size={34} color={palette.purple} />
               <Text style={{ color: palette.ink, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>{filter === 'Archived' ? 'No archived habits' : 'Start with one small routine'}</Text>

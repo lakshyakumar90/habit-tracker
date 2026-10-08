@@ -6,7 +6,7 @@ import { palette } from '../theme/tokens';
 import { appRoute } from '../utils/routes';
 function Loading({ message, retry }: { message?: string; retry?: () => void }) {
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18, padding: 28, backgroundColor: palette.canvas }}>
-    <Image source={require('../../assets/images/habitly-mark.png')} accessibilityLabel="Habitly logo" style={{ width: 88, height: 88 }} resizeMode="contain" />
+    <Image source={require('../../assets/images/Habitly_Logo_Transparent.png')} accessibilityLabel="Habitly logo" style={{ width: 88, height: 88 }} resizeMode="contain" />
     {message ? <Text style={{ color: palette.ink, textAlign: 'center', fontSize: 14, lineHeight: 21 }}>{message}</Text> : <ActivityIndicator color={palette.purple} />}
     {retry && <Pressable accessibilityRole="button" onPress={retry} style={{ padding: 12 }}><Text style={{ color: palette.purple, fontWeight: '700' }}>Try syncing again</Text></Pressable>}
   </View>;

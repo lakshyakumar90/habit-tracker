@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, Text, View, type ViewStyle } from 'react-native';
 import type { ReactNode } from 'react';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useHabitlyActions, useHabitlyEntries, useHabitlyHabits, useHabitlyTheme
 import { calculateLongestStreak, calculateStreak, heatmapLevel, isScheduledOn } from '../../features/habits/domain';
 import type { Habit, HabitEntry } from '../../features/habits/types';
 import { palette } from '../../theme/tokens';
+import { useReturnToTab } from '../../features/navigation/returnToTab';
 import { addDays, dateKey } from '../../utils/dates';
 
 type DetailTab = 'Overview' | 'History' | 'Insights';
@@ -24,7 +25,8 @@ const DAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const CALENDAR_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function HabitDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const goBack = useReturnToTab(from);
   const habits = useHabitlyHabits();
   const entries = useHabitlyEntries();
   const { setEntry, saveHabit, archiveHabit, deleteHabit } = useHabitlyActions();
@@ -68,7 +70,7 @@ export default function HabitDetail() {
     return <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.canvas, padding: 24 }}>
       <MaterialCommunityIcons name="sprout-outline" size={36} color={palette.purple} />
       <Text style={{ color: palette.ink, fontSize: 18, fontWeight: '700', marginTop: 12 }}>Habit not found</Text>
-      <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ padding: 14 }}><Text style={{ color: palette.purple, fontWeight: '700' }}>Go back</Text></Pressable>
+      <Pressable accessibilityRole="button" onPress={goBack} style={{ padding: 14 }}><Text style={{ color: palette.purple, fontWeight: '700' }}>Go back</Text></Pressable>
     </SafeAreaView>;
   }
 
@@ -99,7 +101,7 @@ export default function HabitDetail() {
     <DetailBackdrop />
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 18, paddingTop: 5, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <HeaderAction icon="arrow-left" label="Go back" onPress={() => router.back()} />
+        <HeaderAction icon="arrow-left" label="Go back" onPress={goBack} />
         <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', color: palette.ink, fontSize: 18, fontWeight: '700' }}>{habit.name}</Text>
         <HeaderAction icon="pencil-outline" label="Edit habit" onPress={() => setShowForm(true)} />
         <HeaderAction icon="dots-horizontal" label="More habit actions" onPress={() => setShowActions(true)} />
@@ -127,7 +129,7 @@ export default function HabitDetail() {
       { label: habit.archived ? 'Restore habit' : 'Archive habit', icon: habit.archived ? 'archive-arrow-up-outline' : 'archive-outline', onPress: () => void archiveHabit(habit.id, !habit.archived) },
       { label: 'Delete habit', icon: 'delete-outline', destructive: true, onPress: () => setShowDelete(true) },
     ]} />
-    <ActionSheet visible={showDelete} title="Delete this habit?" subtitle="Its completion history will also be removed." onClose={() => setShowDelete(false)} actions={[{ label: 'Delete habit', icon: 'delete-outline', destructive: true, onPress: () => { void deleteHabit(habit.id); router.back(); } }]} />
+    <ActionSheet visible={showDelete} title="Delete this habit?" subtitle="Its completion history will also be removed." onClose={() => setShowDelete(false)} actions={[{ label: 'Delete habit', icon: 'delete-outline', destructive: true, onPress: () => { void deleteHabit(habit.id); goBack(); } }]} />
     <ActionSheet visible={rangeOpen} title="Chart range" subtitle="Choose the time period" onClose={() => setRangeOpen(false)} actions={(['Weekly', 'Monthly'] as const).map(value => ({ label: value, icon: chartRange === value ? 'check-circle' : 'circle-outline', onPress: () => setChartRange(value) }))} />
     <ActionSheet visible={!!feedback} title="Reminder status" subtitle={feedback} onClose={() => setFeedback('')} actions={[{ label: 'Got it', icon: 'check', onPress: () => setFeedback('') }]} />
     <TimeDialog visible={timeOpen} value={habit.reminderAt ?? '09:00'} title="Habit reminder" onClose={() => setTimeOpen(false)} onSelect={time => { setTimeOpen(false); void updateReminder(time); }} />

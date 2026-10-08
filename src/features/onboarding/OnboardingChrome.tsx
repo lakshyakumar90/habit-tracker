@@ -4,7 +4,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useOnboardingTheme } from './theme';
 
 export function HabitlyMark({ size = 104 }: { size?: number }) {
-  return <Image source={require('../../../assets/images/habitly-mark.png')} accessibilityLabel="Habitly sprout logo" style={{ width: size, height: size }} resizeMode="contain" />;
+  return <Image source={require('../../../assets/images/Habitly_Logo_Transparent.png')} accessibilityLabel="Habitly logo" style={{ width: size, height: size }} resizeMode="contain" />;
 }
 
 export function ProgressHeader({ step, onBack }: { step: number; onBack: () => void }) {

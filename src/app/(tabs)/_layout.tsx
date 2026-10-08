@@ -33,8 +33,7 @@ export default function TabLayout() {
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const pathIndex = tabs.findIndex(tab => pathname.endsWith(`/${tab.name}`));
-  const initialIndex = lastVisibleTab ?? Math.max(0, pathIndex);
-  const ignoreInitialRoute = useRef(lastVisibleTab !== null);
+  const initialIndex = pathIndex >= 0 ? pathIndex : lastVisibleTab ?? 0;
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const selected = useRef(initialIndex);
   const userDragging = useRef(false);
@@ -81,7 +80,6 @@ export default function TabLayout() {
   // Other screens can link to a tab. A tab tap or swipe never writes another
   // route, so a route update cannot replay the pager transition.
   useEffect(() => {
-    if (ignoreInitialRoute.current) { ignoreInitialRoute.current = false; return; }
     if (pathIndex >= 0 && pathIndex !== selected.current) showPage(pathIndex, false);
   }, [pathIndex, showPage]);
 
