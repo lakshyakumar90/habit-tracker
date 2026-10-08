@@ -25,7 +25,9 @@
       [
         "expo-notifications",
         {
-          "defaultChannel": "habitly-reminders"
+          "defaultChannel": "habitly-reminders",
+          "icon": "./assets/images/habitly-notification-icon.png",
+          "color": "#6750C7"
         }
       ],
       [
