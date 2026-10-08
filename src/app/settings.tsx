@@ -26,6 +26,7 @@ export default function Settings() {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profileName);
   const [panel, setPanel] = useState<Panel>(null);
+  const [cloudSyncConsent, setCloudSyncConsent] = useState(false);
   const [message, setMessage] = useState('');
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [canAskAgain, setCanAskAgain] = useState(true);
@@ -38,7 +39,6 @@ export default function Settings() {
   const [timeTarget, setTimeTarget] = useState<TimeTarget>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deletePhrase, setDeletePhrase] = useState('');
   const [working, setWorking] = useState(false);
 
   const goBack = useCallback(() => router.dismissTo('/(tabs)/profile'), []);
@@ -53,10 +53,12 @@ export default function Settings() {
       preferencesRepository.get('habitRemindersEnabled', 'true'), preferencesRepository.get('dailySummaryEnabled', 'false'),
       preferencesRepository.get('motivationalQuotesEnabled', 'false'), preferencesRepository.get('dailySummaryTime', '20:30'),
       preferencesRepository.get('motivationalQuotesTime', '08:00'),
-    ]).then(([habitsOn, summaryOn, quotesOn, summaryAt, quoteAt]) => {
+      preferencesRepository.get('cloudSyncConsentV1', ''),
+    ]).then(([habitsOn, summaryOn, quotesOn, summaryAt, quoteAt, syncConsent]) => {
       if (!active) return;
       setHabitReminders(habitsOn !== 'false'); setDailySummary(summaryOn === 'true'); setMotivationalQuotes(quotesOn === 'true');
       setSummaryTime(summaryAt); setQuoteTime(quoteAt);
+      setCloudSyncConsent(!!syncConsent);
     }); });
     return () => { active = false; cancelIdleCallback(idleTask); };
   }, []);
@@ -92,7 +94,11 @@ export default function Settings() {
     setWorking(true); setMessage('');
     try {
       if (account.user) { await account.signOutAccount(); router.replace('/'); }
-      else { await account.signInWithGoogle(); router.replace('/'); }
+      else {
+        if (!cloudSyncConsent) { setMessage('Review the privacy policy and consent to cloud sync to continue with Google.'); return; }
+        await setPreference('cloudSyncConsentV1', new Date().toISOString());
+        await account.signInWithGoogle(); router.replace('/');
+      }
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Could not change accounts.'); }
     finally { setWorking(false); }
   };
@@ -146,11 +152,11 @@ export default function Settings() {
   const testNotification = async () => { setMessage(''); setTestingNotification(true); try { const { sendTestReminder } = await import('../services/notifications'); await sendTestReminder(); setPermissionGranted(true); setMessage('Test scheduled for 5 seconds from now. Keep Habitly in the background to check delivery.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not schedule a test notification.'); } finally { setTestingNotification(false); } };
   const clearData = async () => { setWorking(true); setMessage(''); try { await cancelAllReminders(); await clearLocalData(); await reload(); if (account.user) void account.syncNow(); setHabitReminders(true); setDailySummary(false); setMotivationalQuotes(false); setConfirmClear(false); setPanel(null); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not clear local data.'); } finally { setWorking(false); } };
   const deleteAccount = async () => {
-    if (deletePhrase !== 'DELETE' || working) return;
+    if (working) return;
     setWorking(true); setMessage('');
     try {
       await account.deleteAccount();
-      setConfirmDelete(false); setDeletePhrase('');
+      setConfirmDelete(false);
       if (Platform.OS === 'web') router.replace('/welcome');
       else Alert.alert('Account deleted', 'Your Habitly account and synced data have been deleted.', [{ text: 'Return to onboarding', onPress: () => router.replace('/welcome') }], { cancelable: false });
     } catch (error) {
@@ -166,7 +172,7 @@ export default function Settings() {
     <View style={groupStyle()}>
       <SettingRow icon={account.user ? 'account-check-outline' : 'google'} title={account.user ? account.user.email ?? 'Google account' : 'Sign in with Google'} subtitle={account.user ? `Cloud sync: ${account.syncStatus}` : 'Back up and restore your data'} onPress={() => { setMessage(''); setPanel('sync'); }} />
       <SettingRow icon="shield-account-outline" title="Privacy policy" subtitle="How Habitly handles your information" onPress={() => void Linking.openURL('https://lakshyakumar.in/habitly/privacy-policy')} />
-      {account.user && <SettingRow icon="account-remove-outline" title="Delete account" subtitle="Remove your account and synced data" destructive onPress={() => { setMessage(''); setDeletePhrase(''); setConfirmDelete(true); }} last />}
+      {account.user && <SettingRow icon="account-remove-outline" title="Delete account" subtitle="Remove your account and synced data" destructive onPress={() => { setMessage(''); setConfirmDelete(true); }} last />}
     </View>
 
     <SectionTitle title="Notifications" />
@@ -194,13 +200,24 @@ export default function Settings() {
     <Modal visible={editingName} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setEditingName(false)}><KeyboardAvoidingView style={scrim()} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Pressable accessibilityRole="button" accessibilityLabel="Close name editor" onPress={() => setEditingName(false)} style={StyleSheet.absoluteFill} /><Animated.View entering={FadeInUp.duration(220)} style={sheetStyle()}><Text style={{ fontSize: 21, fontWeight: '800', color: palette.ink }}>Your name</Text><TextInput autoFocus value={name} onChangeText={setName} maxLength={50} returnKeyType="done" onSubmitEditing={() => void saveName()} placeholder="Name" placeholderTextColor={palette.muted} style={inputStyle()} /><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setEditingName(false)} /><ActionButton label="Save" onPress={() => void saveName()} /></View></Animated.View></KeyboardAvoidingView></Modal>
 
     <Modal visible={!!panel} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setPanel(null)}><View style={scrim()}><Pressable accessibilityRole="button" accessibilityLabel="Close panel" onPress={() => setPanel(null)} style={StyleSheet.absoluteFill} /><Animated.View entering={FadeInUp.duration(220)} style={sheetStyle()}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ fontSize: 20, fontWeight: '800', color: palette.ink }}>{panelTitle}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setPanel(null)} style={iconButton()}><MaterialCommunityIcons name="close" size={21} color={palette.ink} /></Pressable></View><Text style={{ fontSize: 13, lineHeight: 20, color: palette.muted }}>{panelCopy}</Text>
-      {panel === 'sync' && <><ActionButton label={working ? 'Please wait…' : account.user ? 'Sync now' : 'Continue with Google'} onPress={() => { if (account.user) void account.syncNow(); else void changeAccount(); }} textColor={account.user ? onAccentControl(accent) : undefined} />{account.user && <ActionButton label="Sign out" secondary onPress={() => void changeAccount()} />}</>}
+      {panel === 'sync' && <>
+        {!account.user && <>
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: cloudSyncConsent }} onPress={() => setCloudSyncConsent(value => !value)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name={cloudSyncConsent ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={cloudSyncConsent ? accent : palette.muted} />
+            <Text style={{ flex: 1, color: palette.ink, fontSize: 12, lineHeight: 18 }}>I consent to Habitly using my Google account details and syncing my habits, check-ins, tasks, and settings to Firebase.</Text>
+          </Pressable>
+          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://www.lakshyakumar.in/habitly/privacy-policy')}><Text style={{ color: accent, fontSize: 12, textDecorationLine: 'underline' }}>Read the Privacy Policy</Text></Pressable>
+          <Text style={{ color: palette.muted, fontSize: 11 }}>Optional. Your data remains on this device if you continue as a guest.</Text>
+        </>}
+        <ActionButton label={working ? 'Please wait…' : account.user ? 'Sync now' : 'Continue with Google'} disabled={!account.user && !cloudSyncConsent} onPress={() => { if (account.user) void account.syncNow(); else void changeAccount(); }} textColor={account.user ? onAccentControl(accent) : undefined} />
+        {account.user && <ActionButton label="Sign out" secondary onPress={() => void changeAccount()} />}
+      </>}
       {panel === 'export' && <><ActionButton label="Share JSON file" onPress={() => void shareData()} /><ActionButton label="Share CSV file" secondary onPress={() => void shareCsv()} /><ActionButton label="Copy JSON" secondary onPress={() => void copyData()} /></>}
       {panel === 'notifications' && <><View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, borderRadius: 14, backgroundColor: palette.surfaceSoft }}><MaterialCommunityIcons name={permissionGranted ? 'check-circle' : 'bell-alert-outline'} size={20} color={permissionGranted ? palette.success : palette.purple} /><Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: palette.ink }}>{permissionGranted === null ? 'Checking notification permission…' : permissionGranted ? 'Notifications are allowed on this device.' : 'Notifications are currently blocked.'}</Text></View>{permissionGranted === false && <ActionButton label="Enable notifications" onPress={() => void enableNotifications()} />}{permissionGranted && <ActionButton label={testingNotification ? 'Scheduling…' : 'Send test notification'} onPress={() => void testNotification()} />}{permissionGranted === false && !canAskAgain && <ActionButton label="Open device settings" secondary onPress={() => void Linking.openSettings()} />}</>}
       {!!message && <Text accessibilityRole="alert" style={{ fontSize: 12, color: palette.purple }}>{message}</Text>}<ActionButton label="Done" secondary onPress={() => setPanel(null)} /></Animated.View></View></Modal>
 
     <Modal visible={confirmClear} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setConfirmClear(false)}><View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }}><Pressable accessibilityRole="button" accessibilityLabel="Close confirmation" onPress={() => setConfirmClear(false)} style={StyleSheet.absoluteFill} /><View style={{ backgroundColor: palette.card, padding: 20, borderRadius: 24, gap: 12 }}><MaterialCommunityIcons name="alert-circle-outline" size={30} color={palette.danger} /><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Clear all local data?</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>{account.user ? 'This deletes your account’s habits, history, and tasks from this device and syncs those deletions to Firebase when online.' : 'This permanently deletes your habits, history, and tasks from this device.'} Your appearance settings will return to their defaults.</Text><View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => setConfirmClear(false)} /><ActionButton label={working ? 'Clearing…' : 'Delete data'} destructive onPress={() => void clearData()} /></View></View></View></Modal>
-    <Modal visible={confirmDelete} animationType="fade" transparent statusBarTranslucent onRequestClose={() => { if (!working) setConfirmDelete(false); }}><KeyboardAvoidingView style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><View style={{ backgroundColor: palette.card, padding: 20, borderRadius: 24, gap: 12 }}><MaterialCommunityIcons name="account-remove-outline" size={30} color={palette.danger} /><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Delete your Habitly account?</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This permanently removes your Firebase account and synced habits, check-ins, tasks, and preferences. An older session will require Google sign-in again. Your Google account stays intact. Be online before continuing.</Text><Text style={{ color: palette.ink, fontSize: 13, fontWeight: '600' }}>Type DELETE to confirm</Text><TextInput value={deletePhrase} onChangeText={setDeletePhrase} autoCapitalize="characters" autoCorrect={false} editable={!working} placeholder="DELETE" placeholderTextColor={palette.muted} style={inputStyle()} />{!!message && <Text accessibilityRole="alert" style={{ color: palette.danger, fontSize: 12 }}>{message}</Text>}<View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => { if (!working) setConfirmDelete(false); }} /><ActionButton label={working ? 'Deleting…' : 'Delete account'} destructive disabled={working || deletePhrase !== 'DELETE'} onPress={() => void deleteAccount()} /></View><Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://lakshyakumar.in/habitly/delete-account')}><Text style={{ color: palette.muted, textDecorationLine: 'underline', fontSize: 12, textAlign: 'center' }}>Need help? Request deletion on the web</Text></Pressable></View></KeyboardAvoidingView></Modal>
+    <Modal visible={confirmDelete} animationType="fade" transparent statusBarTranslucent onRequestClose={() => { if (!working) setConfirmDelete(false); }}><KeyboardAvoidingView style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: palette.overlay }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><View style={{ backgroundColor: palette.card, padding: 20, borderRadius: 24, gap: 12 }}><MaterialCommunityIcons name="account-remove-outline" size={30} color={palette.danger} /><Text style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>Delete your Habitly account?</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This permanently removes your Firebase account and synced habits, check-ins, tasks, and preferences. An older session will require Google sign-in again. Your Google account stays intact. Be online before continuing.</Text><Text style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>You can’t undo this action.</Text>{!!message && <Text accessibilityRole="alert" style={{ color: palette.danger, fontSize: 12 }}>{message}</Text>}<View style={{ flexDirection: 'row', gap: 10 }}><ActionButton label="Cancel" secondary onPress={() => { if (!working) setConfirmDelete(false); }} /><ActionButton label={working ? 'Deleting…' : 'Delete account'} destructive disabled={working} onPress={() => void deleteAccount()} /></View><Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://lakshyakumar.in/habitly/delete-account')}><Text style={{ color: palette.muted, textDecorationLine: 'underline', fontSize: 12, textAlign: 'center' }}>Need help? Request deletion on the web</Text></Pressable></View></KeyboardAvoidingView></Modal>
     <TimeDialog visible={timeTarget !== null} value={timeTarget === 'quote' ? quoteTime : summaryTime} title={timeTarget === 'quote' ? 'Quote reminder time' : 'Daily summary time'} onClose={() => setTimeTarget(null)} onSelect={time => void changeTime(time)} />
   </Screen></View>;
 }

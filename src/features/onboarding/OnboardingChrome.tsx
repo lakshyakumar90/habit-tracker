@@ -28,9 +28,9 @@ export function PrimaryActionButton({ label, onPress, disabled = false, icon = '
   </Pressable>;
 }
 
-export function AccountActionButton({ label, icon, iconColor, onPress }: { label: string; icon: string; iconColor?: string; onPress: () => void }) {
+export function AccountActionButton({ label, icon, iconColor, onPress, disabled = false }: { label: string; icon: string; iconColor?: string; onPress: () => void; disabled?: boolean }) {
   const theme = useOnboardingTheme();
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ minHeight: 54, borderRadius: 27, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: theme.surface, opacity: pressed ? 0.78 : 1 })}>
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => ({ minHeight: 54, borderRadius: 27, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: theme.surface, opacity: disabled ? 0.48 : pressed ? 0.78 : 1 })}>
     <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={21} color={iconColor ?? theme.ink} />
     <Text style={{ color: theme.ink, fontSize: 14, fontWeight: '600' }}>{label}</Text>
   </Pressable>;

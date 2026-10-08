@@ -27,6 +27,7 @@ export function OnboardingFlow() {
   const [motivation, setMotivation] = useState(onboardingDraft.motivation);
   const [error, setError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
+  const [privacyNoticeAcknowledged, setPrivacyNoticeAcknowledged] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -46,7 +47,9 @@ export function OnboardingFlow() {
     setSaving(true);
     try {
       if (step === 0) {
+        if (!privacyNoticeAcknowledged) { setError('Read the privacy notice and confirm to continue.'); return; }
         if (!name.trim()) { setError('Add your name to continue.'); return; }
+        await setPreference('privacyNoticeAcknowledgedV1', new Date().toISOString());
         await setPreference('profileName', name.trim());
       } else if (step === 1) {
         if (!ageRange) { setError('Choose an age range to continue.'); return; }
@@ -104,6 +107,7 @@ export function OnboardingFlow() {
     setAuthNotice(''); savingRef.current = true; setSaving(true);
     try {
       if (!account.configured) throw new Error('Google sign-in needs Firebase setup. Add your project configuration, then rebuild the app.');
+      await setPreference('cloudSyncConsentV1', new Date().toISOString());
       await setPreference('onboardingComplete', 'true');
       await account.signInWithGoogle();
       router.replace(appRoute('/'));
@@ -124,7 +128,7 @@ export function OnboardingFlow() {
           {step < stepCount ? <>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingTop: 28, paddingBottom: 12 }}>
               <Animated.View key={step} entering={FadeInRight.duration(230)} exiting={FadeOutLeft.duration(150)} style={{ flexGrow: 1, gap: 20 }}>
-                {step === 0 && <NameStep name={name} onChange={value => { setName(value); if (error) setError(''); }} />}
+                {step === 0 && <NameStep name={name} acknowledged={privacyNoticeAcknowledged} onAcknowledge={value => { setPrivacyNoticeAcknowledged(value); if (error) setError(''); }} onChange={value => { setName(value); if (error) setError(''); }} />}
                 {step === 1 && <AgeStep value={ageRange} onSelect={value => { setAgeRange(value); if (error) setError(''); }} />}
                 {step === 2 && <InterestStep values={interests} onToggle={id => { setInterests(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]); if (error) setError(''); }} />}
                 {step === 3 && <DiscoveryStep value={discoverySource} onSelect={value => { setDiscoverySource(value); if (error) setError(''); }} />}
@@ -141,7 +145,7 @@ export function OnboardingFlow() {
   </View>;
 }
 
-function NameStep({ name, onChange }: { name: string; onChange: (value: string) => void }) {
+function NameStep({ name, acknowledged, onAcknowledge, onChange }: { name: string; acknowledged: boolean; onAcknowledge: (value: boolean) => void; onChange: (value: string) => void }) {
   const theme = useOnboardingTheme();
   return <>
     <FormHeading title="What should we call you?" description="This helps us personalize your experience." />
@@ -149,6 +153,11 @@ function NameStep({ name, onChange }: { name: string; onChange: (value: string) 
       <MaterialCommunityIcons name="account-outline" size={21} color={theme.ink} />
       <TextInput accessibilityLabel="Your name" value={name} onChangeText={onChange} placeholder="Enter your name" placeholderTextColor={theme.muted} autoCapitalize="words" autoCorrect={false} maxLength={50} returnKeyType="done" style={{ flex: 1, minHeight: 54, color: theme.ink, fontSize: 15 }} />
     </View>
+    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: acknowledged }} onPress={() => onAcknowledge(!acknowledged)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 5 }}>
+      <MaterialCommunityIcons name={acknowledged ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={acknowledged ? theme.purple : theme.muted} />
+      <Text style={{ flex: 1, color: theme.ink, fontSize: 12, lineHeight: 18 }}>I have read Habitly’s privacy notice.</Text>
+    </Pressable>
+    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://www.lakshyakumar.in/habitly/privacy-policy')}><Text style={{ color: theme.purple, fontSize: 12, textDecorationLine: 'underline' }}>Read the Privacy Policy</Text></Pressable>
     <View style={{ flex: 1, minHeight: 54, alignItems: 'center', justifyContent: 'center', paddingTop: 10 }}><FriendlyFace /></View>
   </>;
 }
@@ -206,18 +215,24 @@ function MotivationStep({ value, onChange }: { value: string; onChange: (value: 
 
 function ReadyStep({ name, notice, onGoogle, onGuest }: { name: string; notice: string; onGoogle: () => void; onGuest: () => void }) {
   const theme = useOnboardingTheme();
+  const [cloudSyncConsent, setCloudSyncConsent] = useState(false);
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18, paddingTop: 8, paddingBottom: 12 }}>
     <Animated.View entering={FadeIn.duration(360)}><HabitlyMark size={82} /></Animated.View>
     <View style={{ alignItems: 'center', gap: 8 }}>
       <Text style={{ color: theme.ink, fontSize: 27, lineHeight: 32, letterSpacing: -0.6, textAlign: 'center', fontWeight: '800' }}>You’re ready,{'\n'}{name || 'Friend'}!</Text>
       <Text style={{ maxWidth: 300, color: theme.muted, fontSize: 14, lineHeight: 20, textAlign: 'center' }}>Create an account to save your progress and access it everywhere.</Text>
     </View>
+    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: cloudSyncConsent }} onPress={() => setCloudSyncConsent(value => !value)} style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 3 }}>
+      <MaterialCommunityIcons name={cloudSyncConsent ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={cloudSyncConsent ? theme.purple : theme.muted} />
+      <Text style={{ flex: 1, color: theme.ink, fontSize: 12, lineHeight: 18 }}>I consent to Habitly using my Google account details and syncing my habits, check-ins, tasks, and settings to Firebase.</Text>
+    </Pressable>
+    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://www.lakshyakumar.in/habitly/privacy-policy')}><Text style={{ color: theme.purple, fontSize: 12, textDecorationLine: 'underline' }}>Read the Privacy Policy</Text></Pressable>
+    <Text style={{ color: theme.muted, textAlign: 'center', fontSize: 11 }}>Optional. Guest mode keeps your data on this device.</Text>
     <View style={{ width: '100%', gap: 10, marginTop: 6 }}>
-      <AccountActionButton label="Continue with Google" icon="google" iconColor="#4285F4" onPress={onGoogle} />
+      <AccountActionButton label="Continue with Google" icon="google" iconColor="#4285F4" onPress={onGoogle} disabled={!cloudSyncConsent} />
       <AccountActionButton label="Continue as Guest" icon="account-outline" onPress={onGuest} />
     </View>
     {!!notice && <Text accessibilityRole="alert" style={{ color: theme.muted, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>{notice}</Text>}
-    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://lakshyakumar.in/habitly/privacy-policy')}><Text style={{ maxWidth: 290, color: theme.muted, textAlign: 'center', fontSize: 11, lineHeight: 16, marginTop: 3, textDecorationLine: 'underline' }}>Read the Habitly Privacy Policy</Text></Pressable>
   </View>;
 }
 
